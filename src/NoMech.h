@@ -30,7 +30,7 @@
 
 /** \file
  *
- *  Header file for VirtualSerial.c.
+ *  Header file for NoMech.c.
  */
 
 #ifndef _VIRTUALSERIAL_H_
@@ -72,6 +72,9 @@
 		void EVENT_USB_Device_Disconnect(void);
 		void EVENT_USB_Device_ConfigurationChanged(void);
 		void EVENT_USB_Device_ControlRequest(void);
+
+        int16_t ADC_Read(void);
+        void pump(void);
 
 #endif
 

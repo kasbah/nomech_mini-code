@@ -30,17 +30,33 @@
 
 /** \file
  *
- *  Main source file for the VirtualSerial demo. This file contains the main tasks of
+ *  Main source file for the NoMech demo. This file contains the main tasks of
  *  the demo and is responsible for the initial application hardware configuration.
  */
 
-#include "VirtualSerial.h"
+#define TOP         PF1
+#define DDR_TOP     DDRF
+#define PORT_TOP    PORTF
+
+#define BOTTOM      PF0
+#define DDR_BOTTOM  DDRF
+#define PORT_BOTTOM PORTF
+
+#define SLOPE       PB7
+#define DDR_SLOPE   DDRB
+#define PORT_SLOPE  PORTB
+
+#define DRIVE       PB6
+#define DDR_DRIVE   DDRB
+#define PORT_DRIVE  PORTB
+
+#include "NoMech.h"
 
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
  *  within a device can be differentiated from one another.
  */
-USB_ClassInfo_CDC_Device_t VirtualSerial_CDC_Interface =
+USB_ClassInfo_CDC_Device_t NoMech_CDC_Interface =
 	{
 		.Config =
 			{
@@ -75,98 +91,130 @@ static FILE USBSerialStream;
 /** Main program entry point. This routine contains the overall program flow, including initial
  *  setup of all components and the main program loop.
  */
+
 int main(void)
 {
 	SetupHardware();
 
 	/* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
-	CDC_Device_CreateStream(&VirtualSerial_CDC_Interface, &USBSerialStream);
+	CDC_Device_CreateStream(&NoMech_CDC_Interface, &USBSerialStream);
 
-	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
 	GlobalInterruptEnable();
 
+	int16_t byte = -1; 
 	for (;;)
 	{
-		CheckJoystickMovement();
 
-		/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
-		CDC_Device_ReceiveByte(&VirtualSerial_CDC_Interface);
+        fprintf(&USBSerialStream, "> ");
 
-		CDC_Device_USBTask(&VirtualSerial_CDC_Interface);
-		USB_USBTask();
+        while(byte != '\r')
+        {
+            byte = CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
+            if (!(byte < 0))
+            {
+                fprintf(&USBSerialStream, "%c", byte);
+                switch ((uint8_t)byte)
+                {
+                    case 'p':
+                        {
+                            pump();
+                        }
+                        break;
+                    case 'r':
+                        {
+                            int16_t val = ADC_Read();
+                            fprintf(&USBSerialStream, "\r\n%i\r\n", val);
+                        }
+                        break;
+                }
+            }
+		    CDC_Device_USBTask(&NoMech_CDC_Interface);
+		    USB_USBTask();
+        }
+
+        byte = -1;
+        fprintf(&USBSerialStream, "\r\n");
+
 	}
 }
+
+void pump(void)
+{
+    DDR_TOP    &= ~(1 << TOP);
+    DDR_BOTTOM |= (1 << BOTTOM);
+
+    PORT_DRIVE |= (1 << DRIVE);
+
+    DDR_TOP    |= (1 << TOP);
+    DDR_BOTTOM &= ~(1 << BOTTOM);
+
+    PORT_DRIVE &= ~(1 << DRIVE);
+}
+
+int16_t ADC_Read(void)
+{
+    uint8_t low, high;
+
+    //start the conversion
+    ADCSRA |= (1 << ADSC);
+
+    //wait for conversion to finish
+    while (bit_is_set(ADCSRA, ADSC));
+
+    //read in this order as both registers are locked when reading ADCL and unlocked
+    //when finished reading ADCH
+    low = ADCL;
+    high = ADCH;
+
+
+    if (high >> 1) //differential mode, negative value
+        return -(511 - (low | ((high & 1) << 8)));
+    else
+        return low | (high << 8);
+}
+
 
 /** Configures the board hardware and chip peripherals for the demo's functionality. */
 void SetupHardware(void)
 {
-#if (ARCH == ARCH_AVR8)
 	/* Disable watchdog if enabled by bootloader/fuses */
 	MCUSR &= ~(1 << WDRF);
 	wdt_disable();
 
 	/* Disable clock division */
 	clock_prescale_set(clock_div_1);
-#elif (ARCH == ARCH_XMEGA)
-	/* Start the PLL to multiply the 2MHz RC oscillator to 32MHz and switch the CPU core to run from it */
-	XMEGACLK_StartPLL(CLOCK_SRC_INT_RC2MHZ, 2000000, F_CPU);
-	XMEGACLK_SetCPUClockSource(CLOCK_SRC_PLL);
-
-	/* Start the 32MHz internal RC oscillator and start the DFLL to increase it to 48MHz using the USB SOF as a reference */
-	XMEGACLK_StartInternalOscillator(CLOCK_SRC_INT_RC32MHZ);
-	XMEGACLK_StartDFLL(CLOCK_SRC_INT_RC32MHZ, DFLL_REF_INT_USBSOF, F_USB);
-
-	PMIC.CTRL = PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_HILVLEN_bm;
-#endif
 
 	/* Hardware Initialization */
-	Joystick_Init();
-	LEDs_Init();
+
+    //disable logic on AIN0 pin
+    DIDR1 |= 1;
+
+    ////shutdown the ADC so we can use the comparator
+    //PRR0 |= 1;
+
+    ////enable the analog MUX for the comparator
+    //ADCSRB |= (1 << ACME);
+    DDR_DRIVE  |= (1 << DRIVE);
+
+    //Enable the ADC and set the ADC clock prescale to 128, 16Mhz/128 = 125kHz
+    ADCSRA |= (0 << ADPS2) | (1 << ADPS1) | (1 << ADPS0) | (1 << ADEN);
+    ADCSRB |= (1 << ADHSM);
+
+    //Set AdC reference to 2v56 and select ADC1 as negating and 
+    // ADC1 as positive, ADC0 as negative of differential input 10x gain
+    ADMUX |= (1 << REFS1) | (1 << REFS0) | 0b1001;
+
 	USB_Init();
-}
-
-/** Checks for changes in the position of the board joystick, sending strings to the host upon each change. */
-void CheckJoystickMovement(void)
-{
-	uint8_t     JoyStatus_LCL = Joystick_GetStatus();
-	char*       ReportString  = NULL;
-	static bool ActionSent    = false;
-
-	if (JoyStatus_LCL & JOY_UP)
-	  ReportString = "Joystick Up\r\n";
-	else if (JoyStatus_LCL & JOY_DOWN)
-	  ReportString = "Joystick Down\r\n";
-	else if (JoyStatus_LCL & JOY_LEFT)
-	  ReportString = "Joystick Left\r\n";
-	else if (JoyStatus_LCL & JOY_RIGHT)
-	  ReportString = "Joystick Right\r\n";
-	else if (JoyStatus_LCL & JOY_PRESS)
-	  ReportString = "Joystick Pressed\r\n";
-	else
-	  ActionSent = false;
-
-	if ((ReportString != NULL) && (ActionSent == false))
-	{
-		ActionSent = true;
-
-		/* Write the string to the virtual COM port via the created character stream */
-		fputs(ReportString, &USBSerialStream);
-
-		/* Alternatively, without the stream: */
-		// CDC_Device_SendString(&VirtualSerial_CDC_Interface, ReportString);
-	}
 }
 
 /** Event handler for the library USB Connection event. */
 void EVENT_USB_Device_Connect(void)
 {
-	LEDs_SetAllLEDs(LEDMASK_USB_ENUMERATING);
 }
 
 /** Event handler for the library USB Disconnection event. */
 void EVENT_USB_Device_Disconnect(void)
 {
-	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
 }
 
 /** Event handler for the library USB Configuration Changed event. */
@@ -174,14 +222,13 @@ void EVENT_USB_Device_ConfigurationChanged(void)
 {
 	bool ConfigSuccess = true;
 
-	ConfigSuccess &= CDC_Device_ConfigureEndpoints(&VirtualSerial_CDC_Interface);
+	ConfigSuccess &= CDC_Device_ConfigureEndpoints(&NoMech_CDC_Interface);
 
-	LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
 }
 
 /** Event handler for the library USB Control Request reception event. */
 void EVENT_USB_Device_ControlRequest(void)
 {
-	CDC_Device_ProcessControlRequest(&VirtualSerial_CDC_Interface);
+	CDC_Device_ProcessControlRequest(&NoMech_CDC_Interface);
 }
 
