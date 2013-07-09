@@ -34,6 +34,22 @@
  *  the demo and is responsible for the initial application hardware configuration.
  */
 
+//#define TOP         PB4
+//#define DDR_TOP     DDRB
+//#define PORT_TOP    PORTB
+//
+//#define BOTTOM      PB5
+//#define DDR_BOTTOM  DDRB
+//#define PORT_BOTTOM PORTB
+//
+//#define SLOPE       PB7
+//#define DDR_SLOPE   DDRB
+//#define PORT_SLOPE  PORTB
+//
+//#define DRIVE       PB6
+//#define DDR_DRIVE   DDRB
+//#define PORT_DRIVE  PORTB
+
 #define TOP         PF1
 #define DDR_TOP     DDRF
 #define PORT_TOP    PORTF
@@ -50,8 +66,13 @@
 #define DDR_DRIVE   DDRB
 #define PORT_DRIVE  PORTB
 
-#include "NoMech.h"
 
+
+#include "NoMech.h"
+#include <util/delay.h>
+
+volatile bool done = false;
+volatile uint16_t measured;
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
  *  within a device can be differentiated from one another.
@@ -101,41 +122,57 @@ int main(void)
 
 	GlobalInterruptEnable();
 
-	int16_t byte = -1; 
-	for (;;)
-	{
+    
+    for (;;)
+    {
+        int16_t byte = CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
 
-        fprintf(&USBSerialStream, "> ");
-
-        while(byte != '\r')
+        //if (byte == '\r')
         {
-            byte = CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
-            if (!(byte < 0))
+            fprintf(&USBSerialStream, "go!\r\n");
+            CDC_Device_USBTask(&NoMech_CDC_Interface);
+            USB_USBTask();
+
+            ADCSRB &= ~(1 << ACME);
+            ADMUX &= 0b00000;
+            ADCSRA &= 0b011111;
+
+            for (int j = 0; j < 400; j++)
             {
-                fprintf(&USBSerialStream, "%c", byte);
-                switch ((uint8_t)byte)
-                {
-                    case 'p':
-                        {
-                            pump();
-                        }
-                        break;
-                    case 'r':
-                        {
-                            int16_t val = ADC_Read();
-                            fprintf(&USBSerialStream, "\r\n%i\r\n", val);
-                        }
-                        break;
-                }
+                pump();
             }
-		    CDC_Device_USBTask(&NoMech_CDC_Interface);
-		    USB_USBTask();
+
+            done = false;
+
+            ADMUX |= 0b00100;
+            ADCSRA |= 0b100000;
+            ADCSRB |= (1 << ACME);
+
+            ICR1 = 0;
+            TCNT1 = 0;
+            TIFR1 |= (1 << ICF1);
+            TIMSK1 |= (1 << ICIE1);
+            TCCR1A = 0;
+            TCCR1B = (1 << ICNC1) | 0b001;
+            PORT_SLOPE |= (1 << SLOPE);
+            DDR_SLOPE |= (1 << SLOPE);
+
+            while (!done) //wait
+            {
+                fprintf(&USBSerialStream, ".");
+                CDC_Device_USBTask(&NoMech_CDC_Interface);
+                USB_USBTask();
+            }
+
+            DDR_SLOPE  &= ~(1 << SLOPE);
+            PORT_SLOPE &= ~(1 << SLOPE);
+
+            fprintf(&USBSerialStream, "done\r\n");
+
         }
-
-        byte = -1;
-        fprintf(&USBSerialStream, "\r\n");
-
-	}
+        CDC_Device_USBTask(&NoMech_CDC_Interface);
+        USB_USBTask();
+    }
 }
 
 void pump(void)
@@ -144,11 +181,15 @@ void pump(void)
     DDR_BOTTOM |= (1 << BOTTOM);
 
     PORT_DRIVE |= (1 << DRIVE);
+    _delay_us(10);
 
     DDR_TOP    |= (1 << TOP);
     DDR_BOTTOM &= ~(1 << BOTTOM);
 
+    _delay_us(10);
+
     PORT_DRIVE &= ~(1 << DRIVE);
+
 }
 
 int16_t ADC_Read(void)
@@ -189,20 +230,25 @@ void SetupHardware(void)
     //disable logic on AIN0 pin
     DIDR1 |= 1;
 
-    ////shutdown the ADC so we can use the comparator
-    //PRR0 |= 1;
+    //shutdown the ADC so we can use the comparator
+    PRR0 |= 1;
 
-    ////enable the analog MUX for the comparator
-    //ADCSRB |= (1 << ACME);
+    //enable the analog MUX for the comparator
     DDR_DRIVE  |= (1 << DRIVE);
+    PORT_DRIVE &= ~(1 << DRIVE);
 
-    //Enable the ADC and set the ADC clock prescale to 128, 16Mhz/128 = 125kHz
-    ADCSRA |= (0 << ADPS2) | (1 << ADPS1) | (1 << ADPS0) | (1 << ADEN);
-    ADCSRB |= (1 << ADHSM);
 
-    //Set AdC reference to 2v56 and select ADC1 as negating and 
-    // ADC1 as positive, ADC0 as negative of differential input 10x gain
-    ADMUX |= (1 << REFS1) | (1 << REFS0) | 0b1001;
+    ////Enable the ADC and set the ADC clock prescale to 128, 16Mhz/128 = 125kHz
+    //ADCSRA |= (0 << ADPS2) | (1 << ADPS1) | (1 << ADPS0) | (1 << ADEN);
+    //ADCSRB |= (1 << ADHSM);
+
+    ////Set AdC reference to 2v56 and select ADC1 as negating and 
+    //// ADC1 as positive, ADC0 as negative of differential input 10x gain
+    //ADMUX |= (1 << REFS1) | (1 << REFS0) | 0b1001;
+
+	TCCR1A = 0b00000000;			// Timer1
+	TCCR1B = _BV(ICNC1);			// noise canceller on, stop
+
 
 	USB_Init();
 }
@@ -232,3 +278,11 @@ void EVENT_USB_Device_ControlRequest(void)
 	CDC_Device_ProcessControlRequest(&NoMech_CDC_Interface);
 }
 
+ISR(TIMER1_CAPT_vect)
+{
+    //measured = ICR1;
+    //TIMSK1 &= ~(1 << ICIE1);
+	//TCCR1B = 0b00000000;
+
+    done = true;
+}
