@@ -72,7 +72,7 @@
 #include <util/delay.h>
 
 volatile bool done = false;
-volatile uint16_t measured;
+volatile uint16_t measured = 0;
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
  *  within a device can be differentiated from one another.
@@ -137,23 +137,25 @@ int main(void)
             ADMUX &= 0b00000;
             ADCSRA &= 0b011111;
 
-            for (int j = 0; j < 400; j++)
+            for (int j = 0; j < 4000; j++)
             {
                 pump();
             }
 
             done = false;
 
-            ADMUX |= 0b00100;
-            ADCSRA |= 0b100000;
+            ADMUX &= 0b11100000;
+            ADCSRA = 0;
             ADCSRB |= (1 << ACME);
 
+            ACSR |= (1 << ACIC);
+
+            fprintf(&USBSerialStream, "ACO: %i\r\n", (ACSR & (1 << ACO)));
+
             ICR1 = 0;
-            TCNT1 = 0;
-            TIFR1 |= (1 << ICF1);
-            TIMSK1 |= (1 << ICIE1);
-            TCCR1A = 0;
             TCCR1B = (1 << ICNC1) | 0b001;
+            TIMSK1 |= (1 << ICIE1);
+        
             PORT_SLOPE |= (1 << SLOPE);
             DDR_SLOPE |= (1 << SLOPE);
 
@@ -168,6 +170,7 @@ int main(void)
             PORT_SLOPE &= ~(1 << SLOPE);
 
             fprintf(&USBSerialStream, "done\r\n");
+            fprintf(&USBSerialStream, "measured: %i\r\n", measured);
 
         }
         CDC_Device_USBTask(&NoMech_CDC_Interface);
@@ -181,12 +184,9 @@ void pump(void)
     DDR_BOTTOM |= (1 << BOTTOM);
 
     PORT_DRIVE |= (1 << DRIVE);
-    _delay_us(10);
 
     DDR_TOP    |= (1 << TOP);
     DDR_BOTTOM &= ~(1 << BOTTOM);
-
-    _delay_us(10);
 
     PORT_DRIVE &= ~(1 << DRIVE);
 
@@ -247,7 +247,6 @@ void SetupHardware(void)
     //ADMUX |= (1 << REFS1) | (1 << REFS0) | 0b1001;
 
 	TCCR1A = 0b00000000;			// Timer1
-	TCCR1B = _BV(ICNC1);			// noise canceller on, stop
 
 
 	USB_Init();
@@ -280,9 +279,11 @@ void EVENT_USB_Device_ControlRequest(void)
 
 ISR(TIMER1_CAPT_vect)
 {
-    //measured = ICR1;
-    //TIMSK1 &= ~(1 << ICIE1);
-	//TCCR1B = 0b00000000;
+    measured = (ICR1H << 8)| ICR1L;
+
+	ACSR &= ~(1 << ACIC); 	// disable AC capture input
+    TIMSK1 &= ~(1 << ICIE1);
+	TCCR1B = 0b00000000;
 
     done = true;
 }
