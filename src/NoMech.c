@@ -34,29 +34,13 @@
  *  the demo and is responsible for the initial application hardware configuration.
  */
 
-//#define TOP         PB4
-//#define DDR_TOP     DDRB
-//#define PORT_TOP    PORTB
-//
-//#define BOTTOM      PB5
-//#define DDR_BOTTOM  DDRB
-//#define PORT_BOTTOM PORTB
-//
-//#define SLOPE       PB7
-//#define DDR_SLOPE   DDRB
-//#define PORT_SLOPE  PORTB
-//
-//#define DRIVE       PB6
-//#define DDR_DRIVE   DDRB
-//#define PORT_DRIVE  PORTB
+#define TOP         PB4
+#define DDR_TOP     DDRB
+#define PORT_TOP    PORTB
 
-#define TOP         PF1
-#define DDR_TOP     DDRF
-#define PORT_TOP    PORTF
-
-#define BOTTOM      PF0
-#define DDR_BOTTOM  DDRF
-#define PORT_BOTTOM PORTF
+#define BOTTOM      PB5
+#define DDR_BOTTOM  DDRB
+#define PORT_BOTTOM PORTB
 
 #define SLOPE       PB7
 #define DDR_SLOPE   DDRB
@@ -65,6 +49,22 @@
 #define DRIVE       PB6
 #define DDR_DRIVE   DDRB
 #define PORT_DRIVE  PORTB
+
+//#define TOP         PF1
+//#define DDR_TOP     DDRF
+//#define PORT_TOP    PORTF
+//
+//#define BOTTOM      PF0
+//#define DDR_BOTTOM  DDRF
+//#define PORT_BOTTOM PORTF
+//
+//#define SLOPE       PB7
+//#define DDR_SLOPE   DDRB
+//#define PORT_SLOPE  PORTB
+//
+//#define DRIVE       PB6
+//#define DDR_DRIVE   DDRB
+//#define PORT_DRIVE  PORTB
 
 
 
@@ -129,6 +129,12 @@ int main(void)
 
         //if (byte == '\r')
         {
+            PORT_BOTTOM &= ~(1 << BOTTOM);
+            PORT_TOP    &= ~(1 << TOP);
+            PORT_SLOPE  &= ~(1 << SLOPE);
+            DDR_SLOPE   &= ~(1 << SLOPE);
+
+            PORTB |= (1 << PB0);
             fprintf(&USBSerialStream, "go!\r\n");
             CDC_Device_USBTask(&NoMech_CDC_Interface);
             USB_USBTask();
@@ -142,6 +148,7 @@ int main(void)
                 pump();
             }
 
+            PORTB &= ~(1 << PB0);
             done = false;
 
             ADMUX &= 0b11100000;
@@ -180,13 +187,16 @@ int main(void)
 
 void pump(void)
 {
+
     DDR_TOP    &= ~(1 << TOP);
-    DDR_BOTTOM |= (1 << BOTTOM);
+    DDR_BOTTOM |=  (1 << BOTTOM);
 
-    PORT_DRIVE |= (1 << DRIVE);
+    PORT_DRIVE |=  (1 << DRIVE);
 
-    DDR_TOP    |= (1 << TOP);
+    _delay_us(10);
+
     DDR_BOTTOM &= ~(1 << BOTTOM);
+    DDR_TOP    |=  (1 << TOP);
 
     PORT_DRIVE &= ~(1 << DRIVE);
 
@@ -279,7 +289,7 @@ void EVENT_USB_Device_ControlRequest(void)
 
 ISR(TIMER1_CAPT_vect)
 {
-    measured = (ICR1H << 8)| ICR1L;
+    measured = ICR1;
 
 	ACSR &= ~(1 << ACIC); 	// disable AC capture input
     TIMSK1 &= ~(1 << ICIE1);
