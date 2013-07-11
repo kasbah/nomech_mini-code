@@ -115,8 +115,6 @@ int main(void)
 	GlobalInterruptEnable();
 
     ACSR &= ~(1 << ACBG);
-    ADCSRB |=  (1 << ACME);
-    ADMUX &= 0b00000;
     
     for (;;)
     {
@@ -136,24 +134,20 @@ int main(void)
                 pump();
             }
 
-            ACSR |= (1 << ACBG);
-
-
             ADCSRB |=  (1 << ACME);
             ADMUX &= 0b00000;
+            _delay_us(1);
 
             PORT_SLOPE |= (1 << SLOPE);
             DDR_SLOPE  |= (1 << SLOPE);
 
-            measured = (ACSR & (1 <<ACO)) >> ACO;
-            fprintf(&USBSerialStream, "ACO before: %i\r\n", measured);
+            measured = 0;
+            do {
+                done = !((ACSR & (1 <<ACO)) >> ACO);
+                measured++; 
+            } while (!done);
 
-            PORTB |= (1 << PB0);
-
-            _delay_ms(2);
-
-            measured = (ACSR & (1 <<ACO)) >> ACO;
-            fprintf(&USBSerialStream, "ACO after: %i\r\n", measured);
+            fprintf(&USBSerialStream, "measured: %i\r\n", measured);
             PORTB      &= ~(1 << PB0);
 
             DDR_SLOPE  &= ~(1 << SLOPE);
@@ -212,8 +206,8 @@ void SetupHardware(void)
     //disable logic on AIN0 pin
     DIDR1 |= 1;
 
-    //DDR_DRIVE  |= (1 << DRIVE);
-    //PORT_DRIVE &= ~(1 << DRIVE);
+    DDR_DRIVE  |= (1 << DRIVE);
+    PORT_DRIVE &= ~(1 << DRIVE);
 
 
     ////Enable the ADC and set the ADC clock prescale to 128, 16Mhz/128 = 125kHz
@@ -225,9 +219,6 @@ void SetupHardware(void)
     //ADMUX |= (1 << REFS1) | (1 << REFS0) | 0b1001;
 
     DDRB |= (1 << PB0);
-
-    DDRE  |= (1 << PE6);
-    PORTE |= (1 << PE6);
 
 	USB_Init();
 }
