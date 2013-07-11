@@ -129,55 +129,40 @@ int main(void)
 
         //if (byte == '\r')
         {
+            PORTB |= (1 << PB0);
+
             PORT_BOTTOM &= ~(1 << BOTTOM);
             PORT_TOP    &= ~(1 << TOP);
             PORT_SLOPE  &= ~(1 << SLOPE);
             DDR_SLOPE   &= ~(1 << SLOPE);
 
-            PORTB |= (1 << PB0);
-            fprintf(&USBSerialStream, "go!\r\n");
-            CDC_Device_USBTask(&NoMech_CDC_Interface);
-            USB_USBTask();
-
             ADCSRB &= ~(1 << ACME);
             ADMUX &= 0b00000;
             ADCSRA &= 0b011111;
 
-            for (int j = 0; j < 4000; j++)
+            for (int j = 0; j < 200; j++)
             {
                 pump();
             }
 
-            PORTB &= ~(1 << PB0);
-            done = false;
+            ADCSRB |=  (1 << ACME);
 
-            ADMUX &= 0b11100000;
-            ADCSRA = 0;
-            ADCSRB |= (1 << ACME);
+            PORTB      &= ~(1 << PB0);
 
-            ACSR |= (1 << ACIC);
-
-            fprintf(&USBSerialStream, "ACO: %i\r\n", (ACSR & (1 << ACO)));
-
-            ICR1 = 0;
-            TCCR1B = (1 << ICNC1) | 0b001;
-            TIMSK1 |= (1 << ICIE1);
-        
             PORT_SLOPE |= (1 << SLOPE);
-            DDR_SLOPE |= (1 << SLOPE);
+            DDR_SLOPE  |= (1 << SLOPE);
 
-            while (!done) //wait
-            {
-                fprintf(&USBSerialStream, ".");
-                CDC_Device_USBTask(&NoMech_CDC_Interface);
-                USB_USBTask();
-            }
+            _delay_us(500);
 
             DDR_SLOPE  &= ~(1 << SLOPE);
             PORT_SLOPE &= ~(1 << SLOPE);
 
-            fprintf(&USBSerialStream, "done\r\n");
-            fprintf(&USBSerialStream, "measured: %i\r\n", measured);
+            DDR_TOP    |=  (1 << TOP);
+            DDR_BOTTOM |=  (1 << BOTTOM);
+
+            PORT_TOP    &= ~(1 << TOP);
+            PORT_BOTTOM &= ~(1 << BOTTOM);
+
 
         }
         CDC_Device_USBTask(&NoMech_CDC_Interface);
@@ -193,12 +178,11 @@ void pump(void)
 
     PORT_DRIVE |=  (1 << DRIVE);
 
-    _delay_us(10);
-
     DDR_BOTTOM &= ~(1 << BOTTOM);
     DDR_TOP    |=  (1 << TOP);
 
     PORT_DRIVE &= ~(1 << DRIVE);
+
 
 }
 
