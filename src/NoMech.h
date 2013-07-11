@@ -73,7 +73,6 @@
 		void EVENT_USB_Device_ConfigurationChanged(void);
 		void EVENT_USB_Device_ControlRequest(void);
 
-        int16_t ADC_Read(void);
         void pump(void);
 
 #endif

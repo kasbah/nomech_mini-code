@@ -34,13 +34,21 @@
  *  the demo and is responsible for the initial application hardware configuration.
  */
 
-#define TOP         PB4
-#define DDR_TOP     DDRB
-#define PORT_TOP    PORTB
+//#define TOP         PB4
+//#define DDR_TOP     DDRB
+//#define PORT_TOP    PORTB
+//
+//#define BOTTOM      PB5
+//#define DDR_BOTTOM  DDRB
+//#define PORT_BOTTOM PORTB
 
-#define BOTTOM      PB5
-#define DDR_BOTTOM  DDRB
-#define PORT_BOTTOM PORTB
+#define TOP         PF1
+#define DDR_TOP     DDRF
+#define PORT_TOP    PORTF
+
+#define BOTTOM      PF0
+#define DDR_BOTTOM  DDRF
+#define PORT_BOTTOM PORTF
 
 #define SLOPE       PB7
 #define DDR_SLOPE   DDRB
@@ -49,22 +57,6 @@
 #define DRIVE       PB6
 #define DDR_DRIVE   DDRB
 #define PORT_DRIVE  PORTB
-
-//#define TOP         PF1
-//#define DDR_TOP     DDRF
-//#define PORT_TOP    PORTF
-//
-//#define BOTTOM      PF0
-//#define DDR_BOTTOM  DDRF
-//#define PORT_BOTTOM PORTF
-//
-//#define SLOPE       PB7
-//#define DDR_SLOPE   DDRB
-//#define PORT_SLOPE  PORTB
-//
-//#define DRIVE       PB6
-//#define DDR_DRIVE   DDRB
-//#define PORT_DRIVE  PORTB
 
 
 
@@ -122,14 +114,15 @@ int main(void)
 
 	GlobalInterruptEnable();
 
+    ACSR &= ~(1 << ACBG);
+    ADCSRB |=  (1 << ACME);
+    ADMUX &= 0b00000;
     
     for (;;)
     {
-        int16_t byte = CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
 
         //if (byte == '\r')
         {
-            PORTB |= (1 << PB0);
 
             PORT_BOTTOM &= ~(1 << BOTTOM);
             PORT_TOP    &= ~(1 << TOP);
@@ -137,22 +130,31 @@ int main(void)
             DDR_SLOPE   &= ~(1 << SLOPE);
 
             ADCSRB &= ~(1 << ACME);
-            ADMUX &= 0b00000;
-            ADCSRA &= 0b011111;
 
             for (int j = 0; j < 200; j++)
             {
                 pump();
             }
 
-            ADCSRB |=  (1 << ACME);
+            ACSR |= (1 << ACBG);
 
-            PORTB      &= ~(1 << PB0);
+
+            ADCSRB |=  (1 << ACME);
+            ADMUX &= 0b00000;
 
             PORT_SLOPE |= (1 << SLOPE);
             DDR_SLOPE  |= (1 << SLOPE);
 
-            _delay_us(500);
+            measured = (ACSR & (1 <<ACO)) >> ACO;
+            fprintf(&USBSerialStream, "ACO before: %i\r\n", measured);
+
+            PORTB |= (1 << PB0);
+
+            _delay_ms(2);
+
+            measured = (ACSR & (1 <<ACO)) >> ACO;
+            fprintf(&USBSerialStream, "ACO after: %i\r\n", measured);
+            PORTB      &= ~(1 << PB0);
 
             DDR_SLOPE  &= ~(1 << SLOPE);
             PORT_SLOPE &= ~(1 << SLOPE);
@@ -165,6 +167,15 @@ int main(void)
 
 
         }
+        //measured = (ACSR & (1 <<ACO)) >> ACO;
+        //if (measured)
+        //{
+        //    fprintf(&USBSerialStream, "ACO: %i\r\n", measured);
+        //}
+        //else
+        //    fprintf(&USBSerialStream, " NOACO\r\n");
+
+
         CDC_Device_USBTask(&NoMech_CDC_Interface);
         USB_USBTask();
     }
@@ -186,29 +197,6 @@ void pump(void)
 
 }
 
-int16_t ADC_Read(void)
-{
-    uint8_t low, high;
-
-    //start the conversion
-    ADCSRA |= (1 << ADSC);
-
-    //wait for conversion to finish
-    while (bit_is_set(ADCSRA, ADSC));
-
-    //read in this order as both registers are locked when reading ADCL and unlocked
-    //when finished reading ADCH
-    low = ADCL;
-    high = ADCH;
-
-
-    if (high >> 1) //differential mode, negative value
-        return -(511 - (low | ((high & 1) << 8)));
-    else
-        return low | (high << 8);
-}
-
-
 /** Configures the board hardware and chip peripherals for the demo's functionality. */
 void SetupHardware(void)
 {
@@ -224,12 +212,8 @@ void SetupHardware(void)
     //disable logic on AIN0 pin
     DIDR1 |= 1;
 
-    //shutdown the ADC so we can use the comparator
-    PRR0 |= 1;
-
-    //enable the analog MUX for the comparator
-    DDR_DRIVE  |= (1 << DRIVE);
-    PORT_DRIVE &= ~(1 << DRIVE);
+    //DDR_DRIVE  |= (1 << DRIVE);
+    //PORT_DRIVE &= ~(1 << DRIVE);
 
 
     ////Enable the ADC and set the ADC clock prescale to 128, 16Mhz/128 = 125kHz
@@ -240,8 +224,10 @@ void SetupHardware(void)
     //// ADC1 as positive, ADC0 as negative of differential input 10x gain
     //ADMUX |= (1 << REFS1) | (1 << REFS0) | 0b1001;
 
-	TCCR1A = 0b00000000;			// Timer1
+    DDRB |= (1 << PB0);
 
+    DDRE  |= (1 << PE6);
+    PORTE |= (1 << PE6);
 
 	USB_Init();
 }
@@ -271,13 +257,13 @@ void EVENT_USB_Device_ControlRequest(void)
 	CDC_Device_ProcessControlRequest(&NoMech_CDC_Interface);
 }
 
-ISR(TIMER1_CAPT_vect)
-{
-    measured = ICR1;
-
-	ACSR &= ~(1 << ACIC); 	// disable AC capture input
-    TIMSK1 &= ~(1 << ICIE1);
-	TCCR1B = 0b00000000;
-
-    done = true;
-}
+//ISR(TIMER1_CAPT_vect)
+//{
+//    measured = ICR1;
+//
+//	ACSR &= ~(1 << ACIC); 	// disable AC capture input
+//    TIMSK1 &= ~(1 << ICIE1);
+//	TCCR1B = 0b00000000;
+//
+//    done = true;
+//}

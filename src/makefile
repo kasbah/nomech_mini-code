@@ -30,6 +30,9 @@ first:
 	avrdude -p atmega32u4 -P usb -c avrisp2 -B 10 -e
 	avrdude -p atmega32u4 -P usb -c avrisp2 -B 10 -U efuse:w:0xCB:m -U hfuse:w:0xDF:m -U lfuse:w:0xFF:m
 
+read:
+	avrdude -p atmega32u4 -P usb -c avrisp2 -U flash:r:led_test.hex:i 
+
 # Include LUFA build script makefiles
 include $(LUFA_PATH)/Build/lufa_core.mk
 include $(LUFA_PATH)/Build/lufa_sources.mk
