@@ -70,30 +70,30 @@ volatile uint16_t measured = 0;
  *  within a device can be differentiated from one another.
  */
 USB_ClassInfo_CDC_Device_t NoMech_CDC_Interface =
-	{
-		.Config =
-			{
-				.ControlInterfaceNumber   = 0,
-				.DataINEndpoint           =
-					{
-						.Address          = CDC_TX_EPADDR,
-						.Size             = CDC_TXRX_EPSIZE,
-						.Banks            = 1,
-					},
-				.DataOUTEndpoint =
-					{
-						.Address          = CDC_RX_EPADDR,
-						.Size             = CDC_TXRX_EPSIZE,
-						.Banks            = 1,
-					},
-				.NotificationEndpoint =
-					{
-						.Address          = CDC_NOTIFICATION_EPADDR,
-						.Size             = CDC_NOTIFICATION_EPSIZE,
-						.Banks            = 1,
-					},
-			},
-	};
+    {
+        .Config =
+            {
+                .ControlInterfaceNumber   = 0,
+                .DataINEndpoint           =
+                    {
+                        .Address          = CDC_TX_EPADDR,
+                        .Size             = CDC_TXRX_EPSIZE,
+                        .Banks            = 1,
+                    },
+                .DataOUTEndpoint =
+                    {
+                        .Address          = CDC_RX_EPADDR,
+                        .Size             = CDC_TXRX_EPSIZE,
+                        .Banks            = 1,
+                    },
+                .NotificationEndpoint =
+                    {
+                        .Address          = CDC_NOTIFICATION_EPADDR,
+                        .Size             = CDC_NOTIFICATION_EPSIZE,
+                        .Banks            = 1,
+                    },
+            },
+    };
 
 /** Standard file stream for the CDC interface when set up, so that the virtual CDC COM port can be
  *  used like any regular character stream in the C APIs
@@ -107,12 +107,12 @@ static FILE USBSerialStream;
 
 int main(void)
 {
-	SetupHardware();
+    SetupHardware();
 
-	/* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
-	CDC_Device_CreateStream(&NoMech_CDC_Interface, &USBSerialStream);
+    /* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
+    CDC_Device_CreateStream(&NoMech_CDC_Interface, &USBSerialStream);
 
-	GlobalInterruptEnable();
+    GlobalInterruptEnable();
 
     for (;;)
     {
@@ -186,14 +186,14 @@ void pump(void)
 /** Configures the board hardware and chip peripherals for the demo's functionality. */
 void SetupHardware(void)
 {
-	/* Disable watchdog if enabled by bootloader/fuses */
-	MCUSR &= ~(1 << WDRF);
-	wdt_disable();
+    /* Disable watchdog if enabled by bootloader/fuses */
+    MCUSR &= ~(1 << WDRF);
+    wdt_disable();
 
-	/* Disable clock division */
-	clock_prescale_set(clock_div_1);
+    /* Disable clock division */
+    clock_prescale_set(clock_div_1);
 
-	/* Hardware Initialization */
+    /* Hardware Initialization */
 
     //disable logic on AIN0 pin
     DIDR1      |=  (1 << AIN0D);
@@ -204,7 +204,7 @@ void SetupHardware(void)
 
     DDRB |= (1 << PB0);
 
-	USB_Init();
+    USB_Init();
 }
 
 /** Event handler for the library USB Connection event. */
@@ -220,25 +220,25 @@ void EVENT_USB_Device_Disconnect(void)
 /** Event handler for the library USB Configuration Changed event. */
 void EVENT_USB_Device_ConfigurationChanged(void)
 {
-	bool ConfigSuccess = true;
+    bool ConfigSuccess = true;
 
-	ConfigSuccess &= CDC_Device_ConfigureEndpoints(&NoMech_CDC_Interface);
+    ConfigSuccess &= CDC_Device_ConfigureEndpoints(&NoMech_CDC_Interface);
 
 }
 
 /** Event handler for the library USB Control Request reception event. */
 void EVENT_USB_Device_ControlRequest(void)
 {
-	CDC_Device_ProcessControlRequest(&NoMech_CDC_Interface);
+    CDC_Device_ProcessControlRequest(&NoMech_CDC_Interface);
 }
 
 //ISR(TIMER1_CAPT_vect)
 //{
 //    measured = ICR1;
 //
-//	ACSR &= ~(1 << ACIC); 	// disable AC capture input
+//  ACSR &= ~(1 << ACIC);   // disable AC capture input
 //    TIMSK1 &= ~(1 << ICIE1);
-//	TCCR1B = 0b00000000;
+//  TCCR1B = 0b00000000;
 //
 //    done = true;
 //}
