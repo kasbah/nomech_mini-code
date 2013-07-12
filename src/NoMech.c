@@ -64,7 +64,7 @@
 #include <util/delay.h>
 
 volatile bool done = false;
-volatile uint16_t measured = 0;
+volatile int16_t measured = 0;
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
  *  within a device can be differentiated from one another.
@@ -116,6 +116,7 @@ int main(void)
 
     for (;;)
     {
+        measured = 0;
 
 
         PORT_BOTTOM &= ~(1 << BOTTOM);
@@ -128,31 +129,36 @@ int main(void)
             pump();
         }
 
-        ADMUX       &= 0b00000;
+        done = false;
+        measured = 0;
 
+        PORT_SLOPE  |=  (1 << SLOPE);
+        DDR_SLOPE   |=  (1 << SLOPE);
+
+        ACSR        |=  (1 << ACIC) | 0b11;
         _delay_us(1);
 
-        PORT_SLOPE  |= (1 << SLOPE);
-        DDR_SLOPE   |= (1 << SLOPE);
 
-        measured = 0;
-        do {
-            done = !((ACSR & (1 <<ACO)) >> ACO);
-            measured++; 
-        } while (!done);
+        //clear the time measurement
+        ICR1         =   0;
+
+        //set timer counter to 0
+        TCNT1        =   0;
+        
+        //enable input capture
+        TIMSK1      |=  (1 << ICIE1);
+
+        //enable noise canceler, set clock to no prescaling
+        TCCR1B       =  (1 << ICNC1) | 0b001;
+
+
+        while (!done); //wait
 
         fprintf(&USBSerialStream, "measured: %i\r\n", measured);
-
-        PORTB       &= ~(1 << PB0);
 
         DDR_SLOPE   &= ~(1 << SLOPE);
         PORT_SLOPE  &= ~(1 << SLOPE);
 
-        DDR_TOP     |=  (1 << TOP);
-        DDR_BOTTOM  |=  (1 << BOTTOM);
-
-        PORT_TOP    &= ~(1 << TOP);
-        PORT_BOTTOM &= ~(1 << BOTTOM);
 
         CDC_Device_USBTask(&NoMech_CDC_Interface);
         USB_USBTask();
@@ -197,7 +203,8 @@ void SetupHardware(void)
     //enable the analog MUX for the comparator
     ADCSRB     |=  (1 << ACME);
 
-    DDRB       |=  (1 << PB0);
+    //extra pin used for debugging
+    //DDRB       |=  (1 << PB0);
 
     USB_Init();
 }
@@ -227,13 +234,19 @@ void EVENT_USB_Device_ControlRequest(void)
     CDC_Device_ProcessControlRequest(&NoMech_CDC_Interface);
 }
 
-//ISR(TIMER1_CAPT_vect)
-//{
-//    measured = ICR1;
-//
-//  ACSR &= ~(1 << ACIC);   // disable AC capture input
-//    TIMSK1 &= ~(1 << ICIE1);
-//  TCCR1B = 0b00000000;
-//
-//    done = true;
-//}
+ISR(TIMER1_CAPT_vect)
+{
+    measured = ICR1;
+
+    DDR_TOP     |=  (1 << TOP);
+    DDR_BOTTOM  |=  (1 << BOTTOM);
+
+    PORT_TOP    &= ~(1 << TOP);
+    PORT_BOTTOM &= ~(1 << BOTTOM);
+
+    ACSR   &= ~(1 << ACIC);   // disable AC capture input
+    TIMSK1 &= ~(1 << ICIE1);
+    TCCR1B = 0;
+
+    done = true;
+}
