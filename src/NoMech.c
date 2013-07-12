@@ -114,8 +114,6 @@ int main(void)
 
 	GlobalInterruptEnable();
 
-    ACSR &= ~(1 << ACBG);
-    
     for (;;)
     {
 
@@ -127,19 +125,20 @@ int main(void)
             PORT_SLOPE  &= ~(1 << SLOPE);
             DDR_SLOPE   &= ~(1 << SLOPE);
 
-            ADCSRB &= ~(1 << ACME);
+            ADCSRB      &= ~(1 << ACME);
 
             for (int j = 0; j < 200; j++)
             {
                 pump();
             }
 
-            ADCSRB |=  (1 << ACME);
-            ADMUX &= 0b00000;
+            ADCSRB      |=  (1 << ACME);
+            ADMUX       &= 0b00000;
+
             _delay_us(1);
 
-            PORT_SLOPE |= (1 << SLOPE);
-            DDR_SLOPE  |= (1 << SLOPE);
+            PORT_SLOPE  |= (1 << SLOPE);
+            DDR_SLOPE   |= (1 << SLOPE);
 
             measured = 0;
             do {
@@ -148,27 +147,20 @@ int main(void)
             } while (!done);
 
             fprintf(&USBSerialStream, "measured: %i\r\n", measured);
-            PORTB      &= ~(1 << PB0);
 
-            DDR_SLOPE  &= ~(1 << SLOPE);
-            PORT_SLOPE &= ~(1 << SLOPE);
+            PORTB       &= ~(1 << PB0);
 
-            DDR_TOP    |=  (1 << TOP);
-            DDR_BOTTOM |=  (1 << BOTTOM);
+            DDR_SLOPE   &= ~(1 << SLOPE);
+            PORT_SLOPE  &= ~(1 << SLOPE);
+
+            DDR_TOP     |=  (1 << TOP);
+            DDR_BOTTOM  |=  (1 << BOTTOM);
 
             PORT_TOP    &= ~(1 << TOP);
             PORT_BOTTOM &= ~(1 << BOTTOM);
 
 
         }
-        //measured = (ACSR & (1 <<ACO)) >> ACO;
-        //if (measured)
-        //{
-        //    fprintf(&USBSerialStream, "ACO: %i\r\n", measured);
-        //}
-        //else
-        //    fprintf(&USBSerialStream, " NOACO\r\n");
-
 
         CDC_Device_USBTask(&NoMech_CDC_Interface);
         USB_USBTask();
@@ -204,19 +196,11 @@ void SetupHardware(void)
 	/* Hardware Initialization */
 
     //disable logic on AIN0 pin
-    DIDR1 |= 1;
+    DIDR1      |=  (1 << AIN0D);
 
-    DDR_DRIVE  |= (1 << DRIVE);
+    //set the drive pin to Hi-Z 
+    DDR_DRIVE  |=  (1 << DRIVE);
     PORT_DRIVE &= ~(1 << DRIVE);
-
-
-    ////Enable the ADC and set the ADC clock prescale to 128, 16Mhz/128 = 125kHz
-    //ADCSRA |= (0 << ADPS2) | (1 << ADPS1) | (1 << ADPS0) | (1 << ADEN);
-    //ADCSRB |= (1 << ADHSM);
-
-    ////Set AdC reference to 2v56 and select ADC1 as negating and 
-    //// ADC1 as positive, ADC0 as negative of differential input 10x gain
-    //ADMUX |= (1 << REFS1) | (1 << REFS0) | 0b1001;
 
     DDRB |= (1 << PB0);
 
