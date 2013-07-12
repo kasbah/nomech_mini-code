@@ -117,50 +117,42 @@ int main(void)
     for (;;)
     {
 
-        //if (byte == '\r')
+
+        PORT_BOTTOM &= ~(1 << BOTTOM);
+        PORT_TOP    &= ~(1 << TOP);
+        PORT_SLOPE  &= ~(1 << SLOPE);
+        DDR_SLOPE   &= ~(1 << SLOPE);
+
+        for (int j = 0; j < 200; j++)
         {
-
-            PORT_BOTTOM &= ~(1 << BOTTOM);
-            PORT_TOP    &= ~(1 << TOP);
-            PORT_SLOPE  &= ~(1 << SLOPE);
-            DDR_SLOPE   &= ~(1 << SLOPE);
-
-            ADCSRB      &= ~(1 << ACME);
-
-            for (int j = 0; j < 200; j++)
-            {
-                pump();
-            }
-
-            ADCSRB      |=  (1 << ACME);
-            ADMUX       &= 0b00000;
-
-            _delay_us(1);
-
-            PORT_SLOPE  |= (1 << SLOPE);
-            DDR_SLOPE   |= (1 << SLOPE);
-
-            measured = 0;
-            do {
-                done = !((ACSR & (1 <<ACO)) >> ACO);
-                measured++; 
-            } while (!done);
-
-            fprintf(&USBSerialStream, "measured: %i\r\n", measured);
-
-            PORTB       &= ~(1 << PB0);
-
-            DDR_SLOPE   &= ~(1 << SLOPE);
-            PORT_SLOPE  &= ~(1 << SLOPE);
-
-            DDR_TOP     |=  (1 << TOP);
-            DDR_BOTTOM  |=  (1 << BOTTOM);
-
-            PORT_TOP    &= ~(1 << TOP);
-            PORT_BOTTOM &= ~(1 << BOTTOM);
-
-
+            pump();
         }
+
+        ADMUX       &= 0b00000;
+
+        _delay_us(1);
+
+        PORT_SLOPE  |= (1 << SLOPE);
+        DDR_SLOPE   |= (1 << SLOPE);
+
+        measured = 0;
+        do {
+            done = !((ACSR & (1 <<ACO)) >> ACO);
+            measured++; 
+        } while (!done);
+
+        fprintf(&USBSerialStream, "measured: %i\r\n", measured);
+
+        PORTB       &= ~(1 << PB0);
+
+        DDR_SLOPE   &= ~(1 << SLOPE);
+        PORT_SLOPE  &= ~(1 << SLOPE);
+
+        DDR_TOP     |=  (1 << TOP);
+        DDR_BOTTOM  |=  (1 << BOTTOM);
+
+        PORT_TOP    &= ~(1 << TOP);
+        PORT_BOTTOM &= ~(1 << BOTTOM);
 
         CDC_Device_USBTask(&NoMech_CDC_Interface);
         USB_USBTask();
@@ -187,7 +179,7 @@ void pump(void)
 void SetupHardware(void)
 {
     /* Disable watchdog if enabled by bootloader/fuses */
-    MCUSR &= ~(1 << WDRF);
+    MCUSR      &= ~(1 << WDRF);
     wdt_disable();
 
     /* Disable clock division */
@@ -202,7 +194,10 @@ void SetupHardware(void)
     DDR_DRIVE  |=  (1 << DRIVE);
     PORT_DRIVE &= ~(1 << DRIVE);
 
-    DDRB |= (1 << PB0);
+    //enable the analog MUX for the comparator
+    ADCSRB     |=  (1 << ACME);
+
+    DDRB       |=  (1 << PB0);
 
     USB_Init();
 }
