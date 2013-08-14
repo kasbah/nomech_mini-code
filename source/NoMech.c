@@ -155,7 +155,7 @@ int main(void)
         while (!done); //wait
 
         if (measured)
-            fprintf(&USBSerialStream, "measured: %i\r\n", measured);
+            fprintf(&USBSerialStream, "0:%i\r\n", measured);
 
         DDR_SLOPE   &= ~(1 << SLOPE);
         PORT_SLOPE  &= ~(1 << SLOPE);
