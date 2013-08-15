@@ -116,6 +116,9 @@ int main(void)
 
     for (;;)
     {
+		/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
+		CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
+
         measured = 0;
 
         PORT_BOTTOM &= ~(1 << BOTTOM);
