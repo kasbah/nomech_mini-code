@@ -19,5 +19,6 @@ def read(samples, electrodes):
                     #done when length is bigger or equal to number of samples
                     done[number] |= (len(d) >= samples)
     s.close()
+    del s #just making sure, probably not needed
     return data
 
