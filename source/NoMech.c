@@ -118,7 +118,6 @@ int main(void)
     {
         measured = 0;
 
-
         PORT_BOTTOM &= ~(1 << BOTTOM);
         PORT_TOP    &= ~(1 << TOP);
         PORT_SLOPE  &= ~(1 << SLOPE);
@@ -135,9 +134,11 @@ int main(void)
         PORT_SLOPE  |=  (1 << SLOPE);
         DDR_SLOPE   |=  (1 << SLOPE);
 
+        //enable the AC input capture, interrupt on rising edge
         ACSR        |=  (1 << ACIC) | 0b11;
-        _delay_us(1);
 
+        //settling time for AC turn on
+        _delay_us(1);
 
         //clear the time measurement
         ICR1         =   0;
@@ -166,9 +167,8 @@ int main(void)
     }
 }
 
-void pump(void)
+static void pump(void)
 {
-
     DDR_TOP    &= ~(1 << TOP);
     DDR_BOTTOM |=  (1 << BOTTOM);
 
@@ -178,8 +178,6 @@ void pump(void)
     DDR_TOP    |=  (1 << TOP);
 
     PORT_DRIVE &= ~(1 << DRIVE);
-
-
 }
 
 /** Configures the board hardware and chip peripherals for the demo's functionality. */
@@ -239,14 +237,19 @@ ISR(TIMER1_CAPT_vect)
 {
     measured = ICR1;
 
+    // set the top and bottom low
     DDR_TOP     |=  (1 << TOP);
     DDR_BOTTOM  |=  (1 << BOTTOM);
-
     PORT_TOP    &= ~(1 << TOP);
     PORT_BOTTOM &= ~(1 << BOTTOM);
 
-    ACSR   &= ~(1 << ACIC);   // disable AC capture input
+    // disable AC capture input
+    ACSR   &= ~(1 << ACIC);   
+
+    //disable the input capture interrupt
     TIMSK1 &= ~(1 << ICIE1);
+    
+    //disable noise canceler
     TCCR1B = 0;
 
     done = true;
