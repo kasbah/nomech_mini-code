@@ -22,3 +22,21 @@ def read(samples, electrodes):
     del s #just making sure, probably not needed
     return data
 
+def open():
+    global s
+    s = serial.Serial(port="/dev/ttyACM0")
+
+def read_one():
+    global s
+    line = s.readline().rstrip().decode("ascii")
+    try:
+        number, value =  [int(field) for field in line.split(":")]
+    except ValueError:
+        return read_one()
+    else:
+        s.flushInput()
+        return value
+
+def close():
+    global s
+    s.close()

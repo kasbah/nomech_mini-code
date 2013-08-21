@@ -158,7 +158,7 @@ int main(void)
 
         while (!done); //wait
 
-        if (measured)
+        if (measured) //XXX why do we get 0 here sometimes?
             fprintf(&USBSerialStream, "0:%i\r\n", measured);
 
         DDR_SLOPE   &= ~(1 << SLOPE);
