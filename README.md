@@ -20,7 +20,7 @@ git submodules update
 
 ~~~
 
-Then edit ```LUFA/LUFA/Build/lufa_atprogram.mk``` to your preference of
+Then edit ```LUFA/LUFA/Build/lufa_avrdude.mk``` to your preference of
 
 ~~~
 AVRDUDE_PROGRAMMER 

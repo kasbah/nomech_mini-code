@@ -23,6 +23,8 @@ LUFA_PATH    = ../LUFA/LUFA
 CC_FLAGS     = -DUSE_LUFA_CONFIG_HEADER -IConfig/
 LD_FLAGS     =
 
+NOW          = $(shell date --iso=seconds)
+
 # Default target
 all:
 
@@ -30,8 +32,8 @@ first:
 	avrdude -p atmega32u4 -P usb -c avrisp2 -B 10 -e
 	avrdude -p atmega32u4 -P usb -c avrisp2 -B 10 -U efuse:w:0xCB:m -U hfuse:w:0xDF:m -U lfuse:w:0xFF:m
 
-read:
-	avrdude -p atmega32u4 -P usb -c avrisp2 -U flash:r:led_test.hex:i 
+backup:
+	avrdude -p atmega32u4 -P usb -c avrisp2 -U flash:r:backup_$(NOW).hex:i 
 
 # Include LUFA build script makefiles
 include $(LUFA_PATH)/Build/lufa_core.mk
