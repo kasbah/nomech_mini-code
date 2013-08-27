@@ -196,7 +196,10 @@ void SetupHardware(void)
     /* Hardware Initialization */
 
     //disable logic on AIN0 pin
-    DIDR1      |=  (1 << AIN0D);
+    //DIDR1      |=  (1 << AIN0D);
+
+    //switch to AC positive input to Bandgap Reference
+    ACSR       |=  (1 << ACBG);
 
     //set the drive pin to Hi-Z 
     DDR_DRIVE  |=  (1 << DRIVE);
