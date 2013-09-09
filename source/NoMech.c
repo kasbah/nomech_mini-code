@@ -65,6 +65,10 @@
 
 volatile bool done = false;
 volatile int16_t measured = 0;
+volatile int16_t measured_prev = 0;
+int8_t detect_prev;
+int8_t detect = 0;
+
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
  *  within a device can be differentiated from one another.
@@ -109,6 +113,8 @@ int main(void)
 {
     SetupHardware();
 
+    measured_prev = 0;
+
     /* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
     CDC_Device_CreateStream(&NoMech_CDC_Interface, &USBSerialStream);
 
@@ -126,7 +132,7 @@ int main(void)
         PORT_SLOPE  &= ~(1 << SLOPE);
         DDR_SLOPE   &= ~(1 << SLOPE);
 
-        for (int j = 0; j < 200; j++)
+        for (int j = 0; j < 100; j++)
         {
             pump();
         }
@@ -159,7 +165,41 @@ int main(void)
         while (!done); //wait
 
         if (measured) //XXX why do we get 0 here sometimes?
-            fprintf(&USBSerialStream, "0:%i\r\n", measured);
+        {
+            if (!measured_prev)
+            {
+                measured_prev = measured;
+                detect_prev   = 0;
+            }
+            else
+            { 
+                measured = (measured * 0.1) + (measured_prev * 0.9);
+                int16_t diff = measured - measured_prev;
+
+                //fprintf(&USBSerialStream, "0:%i\r\n", diff);
+                fprintf(&USBSerialStream, "0:%i\r\n", measured);
+
+                if (diff < -120)
+                {
+                    detect = -1;
+                    //fprintf(&USBSerialStream, "0:%i\r\n", detect);
+                }
+                else if (diff > 120)
+                {
+                    detect = 1;
+                    //fprintf(&USBSerialStream, "0:%i\r\n", detect);
+                }
+                //
+                //fprintf(&USBSerialStream, "0:%i\r\n", detect);
+
+                //if (detect_prev == 1 && detect == 0)
+                //    fprintf(&USBSerialStream, "0:%i\r\n", 1);
+                //else if (detect_prev == -1 && detect == 0)
+                //    fprintf(&USBSerialStream, "0:%i\r\n", 0);
+                measured_prev = measured;
+                detect_prev   = detect;
+            }
+        }
 
         DDR_SLOPE   &= ~(1 << SLOPE);
         PORT_SLOPE  &= ~(1 << SLOPE);
@@ -196,10 +236,10 @@ void SetupHardware(void)
     /* Hardware Initialization */
 
     //disable logic on AIN0 pin
-    //DIDR1      |=  (1 << AIN0D);
+    DIDR1      |=  (1 << AIN0D);
 
     //switch to AC positive input to Bandgap Reference
-    ACSR       |=  (1 << ACBG);
+    //ACSR       |=  (1 << ACBG);
 
     //set the drive pin to Hi-Z 
     DDR_DRIVE  |=  (1 << DRIVE);

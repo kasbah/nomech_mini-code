@@ -28,7 +28,8 @@ def open():
 
 def read_one():
     global s
-    line = s.readline().rstrip().decode("ascii")
+    #line = s.readline().rstrip().decode("ascii")
+    line = s.readline().rstrip()
     try:
         number, value =  [int(field) for field in line.split(":")]
     except ValueError:
