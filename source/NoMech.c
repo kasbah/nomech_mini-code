@@ -59,7 +59,6 @@
 #define PORT_DRIVE  PORTB
 
 
-
 #include "NoMech.h"
 #include <util/delay.h>
 
@@ -68,6 +67,8 @@ volatile int16_t measured = 0;
 volatile int16_t measured_prev = 0;
 int8_t detect_prev;
 int8_t detect = 0;
+
+volatile int tick = 0;
 
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
@@ -118,96 +119,105 @@ int main(void)
     /* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
     CDC_Device_CreateStream(&NoMech_CDC_Interface, &USBSerialStream);
 
+    // setup timer to trigger readings
+    TCCR3B |= (1 << WGM32); // configure timer 3 for CTC mode
+    TIMSK3 |= (1 << OCIE3A); // enable CTC interrrupt
+
+    OCR3A = 250; // set CTC compare to 1000Hz for 16Mhz/64
+    TCCR3B |= ((1 << ICNC3) | (1 << CS30) | (1 << CS31)); // start timer at Fcpu/64 
+
+
     GlobalInterruptEnable();
 
-    for (;;)
-    {
-		/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
-		CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
+    for (;;) {}
+    //for (;;)
+    //{
+	//	/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
+	//	CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
 
-        measured = 0;
+    //    measured = 0;
 
-        PORT_BOTTOM &= ~(1 << BOTTOM);
-        PORT_TOP    &= ~(1 << TOP);
-        PORT_SLOPE  &= ~(1 << SLOPE);
-        DDR_SLOPE   &= ~(1 << SLOPE);
+    //    PORT_BOTTOM &= ~(1 << BOTTOM);
+    //    PORT_TOP    &= ~(1 << TOP);
+    //    PORT_SLOPE  &= ~(1 << SLOPE);
+    //    DDR_SLOPE   &= ~(1 << SLOPE);
 
-        for (int j = 0; j < 100; j++)
-        {
-            pump();
-        }
+    //    for (int j = 0; j < 100; j++)
+    //    {
+    //        pump();
+    //    }
 
-        done = false;
-        measured = 0;
+    //    done = false;
+    //    measured = 0;
 
-        PORT_SLOPE  |=  (1 << SLOPE);
-        DDR_SLOPE   |=  (1 << SLOPE);
+    //    PORT_SLOPE  |=  (1 << SLOPE);
+    //    DDR_SLOPE   |=  (1 << SLOPE);
 
-        //enable the AC input capture, interrupt on rising edge
-        ACSR        |=  (1 << ACIC) | 0b11;
+    //    ////enable the AC input capture, interrupt on rising edge
+    //    //ACSR        |=  (1 << ACIC) | 0b11;
 
-        //settling time for AC turn on
-        _delay_us(1);
+    //    ////settling time for AC turn on
+    //    //_delay_us(1);
 
-        //clear the time measurement
-        ICR1         =   0;
+    //    ////clear the time measurement
+    //    //ICR1         =   0;
 
-        //set timer counter to 0
-        TCNT1        =   0;
-        
-        //enable input capture
-        TIMSK1      |=  (1 << ICIE1);
+    //    ////set timer counter to 0
+    //    //TCNT1        =   0;
+    //    //
+    //    ////enable input capture
+    //    //TIMSK1      |=  (1 << ICIE1);
 
-        //enable noise canceler, set clock to no prescaling
-        TCCR1B       =  (1 << ICNC1) | 0b001;
-
-
-        while (!done); //wait
-
-        if (measured) //XXX why do we get 0 here sometimes?
-        {
-            if (!measured_prev)
-            {
-                measured_prev = measured;
-                detect_prev   = 0;
-            }
-            else
-            { 
-                measured = (measured * 0.1) + (measured_prev * 0.9);
-                int16_t diff = measured - measured_prev;
-
-                //fprintf(&USBSerialStream, "0:%i\r\n", diff);
-                fprintf(&USBSerialStream, "0:%i\r\n", measured);
-
-                if (diff < -120)
-                {
-                    detect = -1;
-                    //fprintf(&USBSerialStream, "0:%i\r\n", detect);
-                }
-                else if (diff > 120)
-                {
-                    detect = 1;
-                    //fprintf(&USBSerialStream, "0:%i\r\n", detect);
-                }
-                //
-                //fprintf(&USBSerialStream, "0:%i\r\n", detect);
-
-                //if (detect_prev == 1 && detect == 0)
-                //    fprintf(&USBSerialStream, "0:%i\r\n", 1);
-                //else if (detect_prev == -1 && detect == 0)
-                //    fprintf(&USBSerialStream, "0:%i\r\n", 0);
-                measured_prev = measured;
-                detect_prev   = detect;
-            }
-        }
-
-        DDR_SLOPE   &= ~(1 << SLOPE);
-        PORT_SLOPE  &= ~(1 << SLOPE);
+    //    ////enable noise canceler, set clock to no prescaling
+    //    //TCCR1B       =  (1 << ICNC1) | 0b001;
 
 
-        CDC_Device_USBTask(&NoMech_CDC_Interface);
-        USB_USBTask();
-    }
+    //    //while (!done); //wait
+
+    //    if (measured) //XXX why do we get 0 here sometimes?
+    //    {
+    //        if (!measured_prev)
+    //        {
+    //            measured_prev = measured;
+    //            detect_prev   = 0;
+    //        }
+    //        else
+    //        { 
+    //            measured = (measured * 0.1) + (measured_prev * 0.9);
+    //            int16_t diff = measured - measured_prev;
+
+    //            //fprintf(&USBSerialStream, "0:%i\r\n", diff);
+    //            //fprintf(&USBSerialStream, "0:%i\r\n", measured);
+
+    //            if (diff < -120)
+    //            {
+    //                detect = -1;
+    //                //fprintf(&USBSerialStream, "0:%i\r\n", detect);
+    //            }
+    //            else if (diff > 120)
+    //            {
+    //                detect = 1;
+    //                //fprintf(&USBSerialStream, "0:%i\r\n", detect);
+    //            }
+    //            //
+    //            //fprintf(&USBSerialStream, "0:%i\r\n", detect);
+
+    //            //if (detect_prev == 1 && detect == 0)
+    //            //    fprintf(&USBSerialStream, "0:%i\r\n", 1);
+    //            //else if (detect_prev == -1 && detect == 0)
+    //            //    fprintf(&USBSerialStream, "0:%i\r\n", 0);
+    //            measured_prev = measured;
+    //            detect_prev   = detect;
+    //        }
+    //    }
+
+    //    DDR_SLOPE   &= ~(1 << SLOPE);
+    //    PORT_SLOPE  &= ~(1 << SLOPE);
+
+
+    //    CDC_Device_USBTask(&NoMech_CDC_Interface);
+    //    USB_USBTask();
+    //}
 }
 
 static void pump(void)
@@ -237,9 +247,6 @@ void SetupHardware(void)
 
     //disable logic on AIN0 pin
     DIDR1      |=  (1 << AIN0D);
-
-    //switch to AC positive input to Bandgap Reference
-    //ACSR       |=  (1 << ACBG);
 
     //set the drive pin to Hi-Z 
     DDR_DRIVE  |=  (1 << DRIVE);
@@ -299,4 +306,12 @@ ISR(TIMER1_CAPT_vect)
     TCCR1B = 0;
 
     done = true;
+}
+
+ISR(TIMER3_COMPA_vect)
+{
+    CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
+    fprintf(&USBSerialStream, "tick:%i\r\n", tick++);
+    CDC_Device_USBTask(&NoMech_CDC_Interface);
+    USB_USBTask();
 }
