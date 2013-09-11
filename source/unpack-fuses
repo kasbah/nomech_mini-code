@@ -1,0 +1,4 @@
+#!/bin/bash
+cat ext.txt && od -d ext.txt  | head -1 | sed -e 's/0000000 *//' | xargs -i perl -e '$str= unpack("B32", pack("N",{})); $str =~ s/.*([01]{4})([01]{4})$/$1 $2/; print  "EXT :$str\n";'
+od -d high.txt  | head -1 | sed -e 's/0000000 *//' | xargs -i perl -e '$str= unpack("B32", pack("N",{})); $str =~ s/.*([01]{4})([01]{4})$/$1 $2/; print "HIGH:$str\n";'
+od -d low.txt  | head -1 | sed -e 's/0000000 *//' | xargs -i perl -e '$str= unpack("B32", pack("N",{})); $str =~ s/.*([01]{4})([01]{4})$/$1 $2/; print  "LOW :$str\n";'

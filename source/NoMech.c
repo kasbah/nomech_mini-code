@@ -58,15 +58,18 @@
 #define DDR_DRIVE   DDRB
 #define PORT_DRIVE  PORTB
 
+#define MAX_PUMPS 100 
 
 #include "NoMech.h"
 #include <util/delay.h>
 
 volatile bool done = false;
-volatile int16_t measured = 0;
-volatile int16_t measured_prev = 0;
+volatile uint16_t measured = 0;
+volatile uint16_t measured_prev = 0;
 int8_t detect_prev;
 int8_t detect = 0;
+
+volatile int number_of_pumps = 0;
 
 volatile int tick = 0;
 
@@ -119,105 +122,42 @@ int main(void)
     /* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
     CDC_Device_CreateStream(&NoMech_CDC_Interface, &USBSerialStream);
 
-    // setup timer to trigger readings
+    DDR_BOTTOM &= ~(1 << BOTTOM);
+    DDR_TOP    |=  (1 << TOP);
+
+    PORT_DRIVE &= ~(1 << DRIVE);
+
+    // setup timer 
     TCCR3B |= (1 << WGM32); // configure timer 3 for CTC mode
     TIMSK3 |= (1 << OCIE3A); // enable CTC interrrupt
 
-    OCR3A = 250; // set CTC compare to 1000Hz for 16Mhz/64
-    TCCR3B |= ((1 << ICNC3) | (1 << CS30) | (1 << CS31)); // start timer at Fcpu/64 
+    OCR3AL = 5; // set CTC compare period 
+    TCCR3B |= ((0 << ICNC3) | (0 << CS32) | (0 << CS31) | (1 << CS30)); 
 
+    measured = 0;
+
+    PORT_BOTTOM &= ~(1 << BOTTOM);
+    PORT_TOP    &= ~(1 << TOP);
+    PORT_SLOPE  &= ~(1 << SLOPE);
+    DDR_SLOPE   &= ~(1 << SLOPE);
 
     GlobalInterruptEnable();
 
-    for (;;) {}
-    //for (;;)
-    //{
-	//	/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
-	//	CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
+    for (;;)
+    {
+		/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
+        CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
 
-    //    measured = 0;
+        GlobalInterruptDisable();
+        uint16_t measured_local = measured;
+        GlobalInterruptEnable();
 
-    //    PORT_BOTTOM &= ~(1 << BOTTOM);
-    //    PORT_TOP    &= ~(1 << TOP);
-    //    PORT_SLOPE  &= ~(1 << SLOPE);
-    //    DDR_SLOPE   &= ~(1 << SLOPE);
+        if (measured_local)
+            fprintf(&USBSerialStream, "0:%u\r\n", measured_local);
 
-    //    for (int j = 0; j < 100; j++)
-    //    {
-    //        pump();
-    //    }
-
-    //    done = false;
-    //    measured = 0;
-
-    //    PORT_SLOPE  |=  (1 << SLOPE);
-    //    DDR_SLOPE   |=  (1 << SLOPE);
-
-    //    ////enable the AC input capture, interrupt on rising edge
-    //    //ACSR        |=  (1 << ACIC) | 0b11;
-
-    //    ////settling time for AC turn on
-    //    //_delay_us(1);
-
-    //    ////clear the time measurement
-    //    //ICR1         =   0;
-
-    //    ////set timer counter to 0
-    //    //TCNT1        =   0;
-    //    //
-    //    ////enable input capture
-    //    //TIMSK1      |=  (1 << ICIE1);
-
-    //    ////enable noise canceler, set clock to no prescaling
-    //    //TCCR1B       =  (1 << ICNC1) | 0b001;
-
-
-    //    //while (!done); //wait
-
-    //    if (measured) //XXX why do we get 0 here sometimes?
-    //    {
-    //        if (!measured_prev)
-    //        {
-    //            measured_prev = measured;
-    //            detect_prev   = 0;
-    //        }
-    //        else
-    //        { 
-    //            measured = (measured * 0.1) + (measured_prev * 0.9);
-    //            int16_t diff = measured - measured_prev;
-
-    //            //fprintf(&USBSerialStream, "0:%i\r\n", diff);
-    //            //fprintf(&USBSerialStream, "0:%i\r\n", measured);
-
-    //            if (diff < -120)
-    //            {
-    //                detect = -1;
-    //                //fprintf(&USBSerialStream, "0:%i\r\n", detect);
-    //            }
-    //            else if (diff > 120)
-    //            {
-    //                detect = 1;
-    //                //fprintf(&USBSerialStream, "0:%i\r\n", detect);
-    //            }
-    //            //
-    //            //fprintf(&USBSerialStream, "0:%i\r\n", detect);
-
-    //            //if (detect_prev == 1 && detect == 0)
-    //            //    fprintf(&USBSerialStream, "0:%i\r\n", 1);
-    //            //else if (detect_prev == -1 && detect == 0)
-    //            //    fprintf(&USBSerialStream, "0:%i\r\n", 0);
-    //            measured_prev = measured;
-    //            detect_prev   = detect;
-    //        }
-    //    }
-
-    //    DDR_SLOPE   &= ~(1 << SLOPE);
-    //    PORT_SLOPE  &= ~(1 << SLOPE);
-
-
-    //    CDC_Device_USBTask(&NoMech_CDC_Interface);
-    //    USB_USBTask();
-    //}
+        CDC_Device_USBTask(&NoMech_CDC_Interface);
+        USB_USBTask();
+    }
 }
 
 static void pump(void)
@@ -256,7 +196,7 @@ void SetupHardware(void)
     ADCSRB     |=  (1 << ACME);
 
     //extra pin used for debugging
-    //DDRB       |=  (1 << PB0);
+    DDRB       |=  (1 << PB0);
 
     USB_Init();
 }
@@ -296,22 +236,64 @@ ISR(TIMER1_CAPT_vect)
     PORT_TOP    &= ~(1 << TOP);
     PORT_BOTTOM &= ~(1 << BOTTOM);
 
+    // set the slope low
+    DDR_SLOPE   &= ~(1 << SLOPE);
+    PORT_SLOPE  &= ~(1 << SLOPE);
+
     // disable AC capture input
     ACSR   &= ~(1 << ACIC);   
 
     //disable the input capture interrupt
     TIMSK1 &= ~(1 << ICIE1);
     
-    //disable noise canceler
+    //disable timer 1 
     TCCR1B = 0;
 
-    done = true;
+    //enable timer 3
+    TCCR3B |= (1 << WGM32); // configure timer 3 for CTC mode
+    TIMSK3 |= (1 << OCIE3A); // enable CTC interrrupt
+    OCR3AL = 5; // set CTC compare period 
+    TCCR3B |= ((0 << ICNC3) | (0 << CS32) | (0 << CS31) | (1 << CS30)); 
+
 }
 
 ISR(TIMER3_COMPA_vect)
 {
-    CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
-    fprintf(&USBSerialStream, "tick:%i\r\n", tick++);
-    CDC_Device_USBTask(&NoMech_CDC_Interface);
-    USB_USBTask();
+    pump();
+    number_of_pumps++;
+    //PORTB |= (1 << PB0);
+    if (MAX_PUMPS < number_of_pumps)
+    {
+        GlobalInterruptDisable();
+        //PORTB &= ~(1 << PB0);
+        number_of_pumps = 0;
+        measured = 0;
+
+        PORT_SLOPE  |=  (1 << SLOPE);
+        DDR_SLOPE   |=  (1 << SLOPE);
+
+        //enable the AC input capture, interrupt on rising edge
+        ACSR        |=  (1 << ACIC) | 0b11;
+
+        //settling time for AC turn on
+        _delay_us(1);
+
+        //clear the time measurement
+        ICR1         =   0;
+
+        //set timer counter to 0
+        TCNT1        =   0;
+        
+        //enable input capture
+        TIMSK1      |=  (1 << ICIE1);
+
+        //enable noise canceler, set clock to no prescaling
+        TCCR1B       =  (1 << ICNC1) | 0b001;
+
+        //disable timer 3
+        TCCR3B       =  0;
+        TIMSK3 &= ~(1 << OCIE3A); // disable CTC interrrupt
+        GlobalInterruptEnable();
+        
+    }
 }

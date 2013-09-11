@@ -35,6 +35,10 @@ first:
 backup:
 	avrdude -p atmega32u4 -P usb -c avrisp2 -U flash:r:backup_$(NOW).hex:i 
 
+readfuse: 
+	avrdude -p atmega32u4 -P usb -c avrisp2 -U efuse:r:ext.txt:r -U hfuse:r:high.txt:r -U lfuse:r:low.txt:r
+	./unpack-fuses
+
 # Include LUFA build script makefiles
 include $(LUFA_PATH)/Build/lufa_core.mk
 include $(LUFA_PATH)/Build/lufa_sources.mk
