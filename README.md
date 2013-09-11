@@ -1,4 +1,4 @@
-# How do I compile for/program the board I just built? 
+# How do I program the board I just built? 
 
 ## Requirements
 
@@ -8,9 +8,9 @@ Software:
 - avrdude
 
 Hardware:
-- ISP programmer
+- avrdude compatible ISP programmer
 
-## Instruction
+## Instructions
 
 First get the LUFA submodule. 
 
