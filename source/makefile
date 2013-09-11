@@ -28,16 +28,6 @@ NOW          = $(shell date --iso=seconds)
 # Default target
 all:
 
-first:
-	avrdude -p atmega32u4 -P usb -c avrisp2 -B 10 -e
-	avrdude -p atmega32u4 -P usb -c avrisp2 -B 10 -U efuse:w:0xCB:m -U hfuse:w:0xDF:m -U lfuse:w:0xFF:m
-
-backup:
-	avrdude -p atmega32u4 -P usb -c avrisp2 -U flash:r:backup_$(NOW).hex:i 
-
-readfuse: 
-	avrdude -p atmega32u4 -P usb -c avrisp2 -U efuse:r:ext.txt:r -U hfuse:r:high.txt:r -U lfuse:r:low.txt:r
-	./unpack-fuses
 
 # Include LUFA build script makefiles
 include $(LUFA_PATH)/Build/lufa_core.mk
@@ -49,3 +39,15 @@ include $(LUFA_PATH)/Build/lufa_dfu.mk
 include $(LUFA_PATH)/Build/lufa_hid.mk
 include $(LUFA_PATH)/Build/lufa_avrdude.mk
 include $(LUFA_PATH)/Build/lufa_atprogram.mk
+
+# custom targets
+first:
+	avrdude $(BASE_AVRDUDE_FLAGS) -B 10 -e
+	avrdude $(BASE_AVRDUDE_FLAGS) -B 10 -U efuse:w:0xCB:m -U hfuse:w:0xDF:m -U lfuse:w:0xFF:m
+
+backup:
+	avrdude $(BASE_AVRDUDE_FLAGS) -U flash:r:backup_$(NOW).hex:i 
+
+readfuse: 
+	avrdude $(BASE_AVRDUDE_FLAGS) -U efuse:r:ext.txt:r -U hfuse:r:high.txt:r -U lfuse:r:low.txt:r
+	./unpack-fuses
