@@ -130,6 +130,7 @@ int main(void)
     PORT_TOP    &= ~(1 << TOP);
     PORT_SLOPE  &= ~(1 << SLOPE);
 
+    uint8_t prev_read_index;
     GlobalInterruptEnable();
 
     for (;;)
@@ -141,12 +142,16 @@ int main(void)
         uint16_t measured_local;
 
         GlobalInterruptDisable();
+        read_index = write_index;
         //memcpy(measured_local, measured, sizeof(uint16_t) * 256);
         measured_local = measured[write_index];
         GlobalInterruptEnable();
 
-        if (measured_local)
+        if (measured_local && (read_index != prev_read_index) && (!(read_index % 2))) //output samples at 1/2 sample rate
+        {
             fprintf(&USBSerialStream, "0:%u\r\n", measured_local);
+            prev_read_index = read_index;
+        }
 
         CDC_Device_USBTask(&NoMech_CDC_Interface);
         USB_USBTask();
