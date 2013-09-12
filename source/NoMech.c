@@ -55,7 +55,9 @@
 #include "NoMech.h"
 #include <util/delay.h>
 
-volatile uint16_t measured = 0;
+volatile uint16_t measured[256];
+volatile uint8_t read_index = 1;
+volatile uint8_t write_index = 0;
 volatile int number_of_pumps = 0;
 
 /** LUFA CDC Class driver interface configuration and state information. This structure is
@@ -135,11 +137,15 @@ int main(void)
 		/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
         CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
 
+        //uint16_t measured_local[256];
+        uint16_t measured_local;
+
         GlobalInterruptDisable();
-        uint16_t measured_local = measured;
+        //memcpy(measured_local, measured, sizeof(uint16_t) * 256);
+        measured_local = measured[write_index];
         GlobalInterruptEnable();
 
-        //if (!measured_local)
+        if (measured_local)
             fprintf(&USBSerialStream, "0:%u\r\n", measured_local);
 
         CDC_Device_USBTask(&NoMech_CDC_Interface);
@@ -245,7 +251,16 @@ ISR(TIMER3_COMPA_vect)
 
 ISR(TIMER1_CAPT_vect)
 {
-    measured = ICR1;
+    measured[write_index++] = ICR1;
+    read_index++;
+    //if (read_index > 255)
+    //    read_index = 0;
+    //read_index = write_index;
+
+    //measured[write_index++] = ICR1;
+
+    //if (write_index > 255)
+    //    write_index = 0;
 
     // set the top and bottom low
     DDR_TOP     |=  (1 << TOP);
