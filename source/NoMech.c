@@ -34,14 +34,6 @@
  *  the demo and is responsible for the initial application hardware configuration.
  */
 
-//#define TOP         PB4
-//#define DDR_TOP     DDRB
-//#define PORT_TOP    PORTB
-//
-//#define BOTTOM      PB5
-//#define DDR_BOTTOM  DDRB
-//#define PORT_BOTTOM PORTB
-
 #define TOP         PF1
 #define DDR_TOP     DDRF
 #define PORT_TOP    PORTF
@@ -63,15 +55,8 @@
 #include "NoMech.h"
 #include <util/delay.h>
 
-volatile bool done = false;
 volatile uint16_t measured = 0;
-volatile uint16_t measured_prev = 0;
-int8_t detect_prev;
-int8_t detect = 0;
-
 volatile int number_of_pumps = 0;
-
-volatile int tick = 0;
 
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
@@ -117,8 +102,6 @@ int main(void)
 {
     SetupHardware();
 
-    measured_prev = 0;
-
     /* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
     CDC_Device_CreateStream(&NoMech_CDC_Interface, &USBSerialStream);
 
@@ -127,17 +110,23 @@ int main(void)
 
     PORT_DRIVE &= ~(1 << DRIVE);
 
-    // setup timer 
-    TCCR3B |= (1 << WGM32); // configure timer 3 for CTC mode
-    TIMSK3 |= (1 << OCIE3A); // enable CTC interrrupt
+    //enable noise canceler, set clock to no prescaling
+    TCCR1B       =  0b001;
 
-    OCR3AL = 5; // set CTC compare period 
-    TCCR3B |= ((0 << ICNC3) | (0 << CS32) | (0 << CS31) | (1 << CS30)); 
+    // set CTC compare period 
+    OCR3AL  = 5; 
+
+    //set timer 3 to Fcpu no noise canceler and enable CTC
+    TCCR3B |= (1 << WGM32)  //CTC mode
+           |  (0 << ICNC3)  //noise canceler
+           |  (0 <<  CS32) | (0 << CS31) | (1 << CS30); //Fcpu div
+
+    // enable TIMER3_COMPA
+    TIMSK3 |= (1 << OCIE3A); 
 
     PORT_BOTTOM &= ~(1 << BOTTOM);
     PORT_TOP    &= ~(1 << TOP);
     PORT_SLOPE  &= ~(1 << SLOPE);
-    DDR_SLOPE   &= ~(1 << SLOPE);
 
     GlobalInterruptEnable();
 
@@ -150,7 +139,7 @@ int main(void)
         uint16_t measured_local = measured;
         GlobalInterruptEnable();
 
-        //if (measured_local)
+        //if (!measured_local)
             fprintf(&USBSerialStream, "0:%u\r\n", measured_local);
 
         CDC_Device_USBTask(&NoMech_CDC_Interface);
@@ -158,18 +147,6 @@ int main(void)
     }
 }
 
-static void pump(void)
-{
-    DDR_TOP    &= ~(1 << TOP);
-    DDR_BOTTOM |=  (1 << BOTTOM);
-
-    PORT_DRIVE |=  (1 << DRIVE);
-
-    DDR_BOTTOM &= ~(1 << BOTTOM);
-    DDR_TOP    |=  (1 << TOP);
-
-    PORT_DRIVE &= ~(1 << DRIVE);
-}
 
 /** Configures the board hardware and chip peripherals for the demo's functionality. */
 void SetupHardware(void)
@@ -194,7 +171,7 @@ void SetupHardware(void)
     ADCSRB     |=  (1 << ACME);
 
     //extra pin used for debugging
-    DDRB       |=  (1 << PB0);
+    //DDRB       |=  (1 << PB0);
 
     USB_Init();
 }
@@ -224,51 +201,26 @@ void EVENT_USB_Device_ControlRequest(void)
     CDC_Device_ProcessControlRequest(&NoMech_CDC_Interface);
 }
 
-ISR(TIMER1_CAPT_vect)
-{
-    measured = ICR1;
-    //measured = 100;
-
-    // set the top and bottom low
-    DDR_TOP     |=  (1 << TOP);
-    DDR_BOTTOM  |=  (1 << BOTTOM);
-    PORT_TOP    &= ~(1 << TOP);
-    PORT_BOTTOM &= ~(1 << BOTTOM);
-
-    // set the slope low
-    DDR_SLOPE   &= ~(1 << SLOPE);
-    PORT_SLOPE  &= ~(1 << SLOPE);
-
-    // disable AC capture input
-    ACSR   &= ~(1 << ACIC);   
-
-    //disable the input capture interrupt
-    TIMSK1 &= ~(1 << ICIE1);
-    
-    //disable timer 1 
-    TCCR1B = 0;
-
-    //enable timer 3
-    TCCR3B |= (1 << WGM32); // configure timer 3 for CTC mode
-    TIMSK3 |= (1 << OCIE3A); // enable CTC interrrupt
-    OCR3AL = 5; // set CTC compare period 
-    TCCR3B |= ((0 << ICNC3) | (0 << CS32) | (0 << CS31) | (1 << CS30)); 
-
-}
-
 ISR(TIMER3_COMPA_vect)
 {
-    pump();
-    number_of_pumps++;
-    PORTB |= (1 << PB0);
-    if (MAX_PUMPS < number_of_pumps)
-    {
-        GlobalInterruptDisable();
-        PORTB &= ~(1 << PB0);
-        number_of_pumps = 0;
+    //open top, close bottom and pulse
+    DDR_TOP    &= ~(1 << TOP);
+    DDR_BOTTOM |=  (1 << BOTTOM);
+    PORT_DRIVE |=  (1 << DRIVE);
 
-        PORT_SLOPE  |=  (1 << SLOPE);
-        DDR_SLOPE   |=  (1 << SLOPE);
+    //open bottom, close top so C doesn't discharge
+    DDR_BOTTOM &= ~(1 << BOTTOM);
+    DDR_TOP    |=  (1 << TOP);
+    PORT_DRIVE &= ~(1 << DRIVE);
+
+    number_of_pumps++;
+
+    if (number_of_pumps >= MAX_PUMPS)
+    {
+        // disable TIMER3_COMPA 
+        TIMSK3 &= ~(1 << OCIE3A); 
+
+        number_of_pumps = 0;
 
         //enable the AC input capture, interrupt on rising edge
         ACSR        |=  (1 << ACIC) | 0b11;
@@ -281,18 +233,37 @@ ISR(TIMER3_COMPA_vect)
 
         //set timer counter to 0
         TCNT1        =   0;
-        
-        //enable input capture
+
+        // raise the slope causing C to discharge
+        DDR_SLOPE   |=  (1 << SLOPE);
+        PORT_SLOPE  |=  (1 << SLOPE);
+
+        //enable TIMER1_CAPT 
         TIMSK1      |=  (1 << ICIE1);
-
-        //enable noise canceler, set clock to no prescaling
-        TCCR1B       =  (1 << ICNC1) | 0b001;
-
-        //disable timer 3
-        TCCR3B       =  0;
-        TIMSK3 &= ~(1 << OCIE3A); // disable CTC interrrupt
-        //_delay_us(225);
-        GlobalInterruptEnable();
-        
     }
 }
+
+ISR(TIMER1_CAPT_vect)
+{
+    measured = ICR1;
+
+    // set the top and bottom low
+    DDR_TOP     |=  (1 << TOP);
+    DDR_BOTTOM  |=  (1 << BOTTOM);
+    PORT_TOP    &= ~(1 << TOP);
+    PORT_BOTTOM &= ~(1 << BOTTOM);
+
+    // drain the slope, set Hi-Z 
+    DDR_SLOPE   &= ~(1 << SLOPE);
+    PORT_SLOPE  &= ~(1 << SLOPE);
+
+    // disable AC capture input
+    ACSR   &= ~(1 << ACIC);   
+
+    //disable TIMER1_CAPT 
+    TIMSK1 &= ~(1 << ICIE1); 
+
+    // enable TIMER3_COMPA 
+    TIMSK3 |= (1 << OCIE3A); 
+}
+
