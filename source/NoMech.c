@@ -134,8 +134,6 @@ int main(void)
     OCR3AL = 5; // set CTC compare period 
     TCCR3B |= ((0 << ICNC3) | (0 << CS32) | (0 << CS31) | (1 << CS30)); 
 
-    measured = 0;
-
     PORT_BOTTOM &= ~(1 << BOTTOM);
     PORT_TOP    &= ~(1 << TOP);
     PORT_SLOPE  &= ~(1 << SLOPE);
@@ -152,7 +150,7 @@ int main(void)
         uint16_t measured_local = measured;
         GlobalInterruptEnable();
 
-        if (measured_local)
+        //if (measured_local)
             fprintf(&USBSerialStream, "0:%u\r\n", measured_local);
 
         CDC_Device_USBTask(&NoMech_CDC_Interface);
@@ -229,6 +227,7 @@ void EVENT_USB_Device_ControlRequest(void)
 ISR(TIMER1_CAPT_vect)
 {
     measured = ICR1;
+    //measured = 100;
 
     // set the top and bottom low
     DDR_TOP     |=  (1 << TOP);
@@ -261,13 +260,12 @@ ISR(TIMER3_COMPA_vect)
 {
     pump();
     number_of_pumps++;
-    //PORTB |= (1 << PB0);
+    PORTB |= (1 << PB0);
     if (MAX_PUMPS < number_of_pumps)
     {
         GlobalInterruptDisable();
-        //PORTB &= ~(1 << PB0);
+        PORTB &= ~(1 << PB0);
         number_of_pumps = 0;
-        measured = 0;
 
         PORT_SLOPE  |=  (1 << SLOPE);
         DDR_SLOPE   |=  (1 << SLOPE);
@@ -276,7 +274,7 @@ ISR(TIMER3_COMPA_vect)
         ACSR        |=  (1 << ACIC) | 0b11;
 
         //settling time for AC turn on
-        _delay_us(1);
+        //_delay_us(1);
 
         //clear the time measurement
         ICR1         =   0;
@@ -293,6 +291,7 @@ ISR(TIMER3_COMPA_vect)
         //disable timer 3
         TCCR3B       =  0;
         TIMSK3 &= ~(1 << OCIE3A); // disable CTC interrrupt
+        //_delay_us(225);
         GlobalInterruptEnable();
         
     }
