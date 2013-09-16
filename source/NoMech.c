@@ -51,12 +51,14 @@
 #define PORT_DRIVE  PORTB
 
 #define MAX_PUMPS 100 
+#define BUF_SIZE 64 
 
 #include "NoMech.h"
 #include <util/delay.h>
 
-volatile uint16_t measured[256];
-volatile uint8_t read_index = 1;
+volatile uint16_t measured[BUF_SIZE];
+//volatile uint16_t measured;
+volatile uint8_t read_index  = 0;
 volatile uint8_t write_index = 0;
 volatile int number_of_pumps = 0;
 
@@ -138,18 +140,17 @@ int main(void)
 		/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
         CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
 
-        //uint16_t measured_local[256];
-        uint16_t measured_local;
+        uint16_t measured_local[BUF_SIZE];
 
         GlobalInterruptDisable();
         read_index = write_index;
-        //memcpy(measured_local, measured, sizeof(uint16_t) * 256);
-        measured_local = measured[write_index];
+        memcpy(measured_local, measured, sizeof(uint16_t) * BUF_SIZE);
+        //measured_local = measured[read_index];
         GlobalInterruptEnable();
 
         if (measured_local && (read_index != prev_read_index) && (!(read_index % 2))) //output samples at 1/2 sample rate
         {
-            fprintf(&USBSerialStream, "0:%u\r\n", measured_local);
+            fprintf(&USBSerialStream, "0:%u\r\n", measured_local[read_index]);
             prev_read_index = read_index;
         }
 
@@ -256,16 +257,10 @@ ISR(TIMER3_COMPA_vect)
 
 ISR(TIMER1_CAPT_vect)
 {
-    measured[write_index++] = ICR1;
-    read_index++;
-    //if (read_index > 255)
-    //    read_index = 0;
-    //read_index = write_index;
+    if(++write_index >= BUF_SIZE)
+        write_index = 0;
 
-    //measured[write_index++] = ICR1;
-
-    //if (write_index > 255)
-    //    write_index = 0;
+    measured[write_index] = ICR1;
 
     // set the top and bottom low
     DDR_TOP     |=  (1 << TOP);
