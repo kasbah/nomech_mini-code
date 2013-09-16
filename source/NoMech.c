@@ -115,18 +115,20 @@ int main(void)
     PORT_DRIVE &= ~(1 << DRIVE);
 
     //enable noise canceler, set clock to no prescaling
-    TCCR1B       =  0b001;
+    //TCCR1B       =  0b001;
 
     // set CTC compare period 
-    OCR3AL  = 5; 
+    OCR3A   = 5; 
+
+    OCR3B   = 2000; 
 
     //set timer 3 to Fcpu no noise canceler and enable CTC
-    TCCR3B |= (1 << WGM32)  //CTC mode
+    TCCR3B |= (0 << WGM32)  //CTC mode
            |  (0 << ICNC3)  //noise canceler
            |  (0 <<  CS32) | (0 << CS31) | (1 << CS30); //Fcpu div
 
-    // enable TIMER3_COMPA
-    TIMSK3 |= (1 << OCIE3A); 
+    // enable TIMER3_COMPB
+    TIMSK3 |= (1 << OCIE3B); 
 
     PORT_BOTTOM &= ~(1 << BOTTOM);
     PORT_TOP    &= ~(1 << TOP);
@@ -140,19 +142,19 @@ int main(void)
 		/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
         CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
 
-        uint16_t measured_local[BUF_SIZE];
+        //uint16_t measured_local[BUF_SIZE];
 
-        GlobalInterruptDisable();
-        read_index = write_index;
-        memcpy(measured_local, measured, sizeof(uint16_t) * BUF_SIZE);
-        //measured_local = measured[read_index];
-        GlobalInterruptEnable();
+        //GlobalInterruptDisable();
+        //read_index = write_index;
+        //memcpy(measured_local, measured, sizeof(uint16_t) * BUF_SIZE);
+        ////measured_local = measured[read_index];
+        //GlobalInterruptEnable();
 
-        if (measured_local && (read_index != prev_read_index) && (!(read_index % 2))) //output samples at 1/2 sample rate
-        {
-            fprintf(&USBSerialStream, "0:%u\r\n", measured_local[read_index]);
-            prev_read_index = read_index;
-        }
+        //if (measured_local && (read_index != prev_read_index) && (!(read_index % 2))) //output samples at 1/2 sample rate
+        //{
+        //    fprintf(&USBSerialStream, "0:%u\r\n", measured_local[read_index]);
+        //    prev_read_index = read_index;
+        //}
 
         CDC_Device_USBTask(&NoMech_CDC_Interface);
         USB_USBTask();
@@ -183,7 +185,7 @@ void SetupHardware(void)
     ADCSRB     |=  (1 << ACME);
 
     //extra pin used for debugging
-    //DDRB       |=  (1 << PB0);
+    DDRB       |=  (1 << PB0);
 
     USB_Init();
 }
@@ -213,8 +215,27 @@ void EVENT_USB_Device_ControlRequest(void)
     CDC_Device_ProcessControlRequest(&NoMech_CDC_Interface);
 }
 
+ISR(TIMER3_COMPB_vect)
+{
+    PORTB |= (1 << PB0);
+
+    // disable TIMER3_COMPB 
+    TIMSK3 &= ~(1 << OCIE3B); 
+
+    //enable CTC mode
+    TCCR3B |= (1 << WGM32);  //CTC mode
+
+    // enable TIMER3_COMPA 
+    TIMSK3 |= (1 << OCIE3A); 
+    TCNT3        =   0;
+}
+
 ISR(TIMER3_COMPA_vect)
 {
+    GlobalInterruptDisable();
+
+    PORTB &= ~(1 << PB0);
+
     //open top, close bottom and pulse
     DDR_TOP    &= ~(1 << TOP);
     DDR_BOTTOM |=  (1 << BOTTOM);
@@ -229,56 +250,97 @@ ISR(TIMER3_COMPA_vect)
 
     if (number_of_pumps >= MAX_PUMPS)
     {
+        number_of_pumps = 0;
+        //disable CTC mode
+        TCCR3B &= ~(1 << WGM32);  //CTC mode
+
+        TCNT3        =   0;
+
         // disable TIMER3_COMPA 
         TIMSK3 &= ~(1 << OCIE3A); 
 
-        number_of_pumps = 0;
-
-        //enable the AC input capture, interrupt on rising edge
-        ACSR        |=  (1 << ACIC) | 0b11;
-
-        //settling time for AC turn on
-        //_delay_us(1);
-
-        //clear the time measurement
-        ICR1         =   0;
-
-        //set timer counter to 0
-        TCNT1        =   0;
-
-        // raise the slope causing C to discharge
-        DDR_SLOPE   |=  (1 << SLOPE);
-        PORT_SLOPE  |=  (1 << SLOPE);
-
-        //enable TIMER1_CAPT 
-        TIMSK1      |=  (1 << ICIE1);
+        // enable TIMER3_COMPB 
+        TIMSK3 |= (1 << OCIE3B); 
     }
+    GlobalInterruptEnable();
 }
 
-ISR(TIMER1_CAPT_vect)
-{
-    if(++write_index >= BUF_SIZE)
-        write_index = 0;
+//ISR(TIMER3_COMPA_vect)
+//{
+//    //open top, close bottom and pulse
+//    DDR_TOP    &= ~(1 << TOP);
+//    DDR_BOTTOM |=  (1 << BOTTOM);
+//    PORT_DRIVE |=  (1 << DRIVE);
+//
+//    //open bottom, close top so C doesn't discharge
+//    DDR_BOTTOM &= ~(1 << BOTTOM);
+//    DDR_TOP    |=  (1 << TOP);
+//    PORT_DRIVE &= ~(1 << DRIVE);
+//
+//    number_of_pumps++;
+//
+//    if (number_of_pumps >= MAX_PUMPS)
+//    {
+//        // disable TIMER3_COMPA 
+//        TIMSK3 &= ~(1 << OCIE3A); 
+//
+//        number_of_pumps = 0;
+//
+//        //enable the AC input capture, interrupt on rising edge
+//        ACSR        |=  (1 << ACIC) | 0b11;
+//
+//        //settling time for AC turn on
+//        //_delay_us(1);
+//
+//        //clear the time measurement
+//        ICR1         =   0;
+//
+//        //set timer counter to 0
+//        TCNT1        =   0;
+//        TCNT3        =   0;
+//
+//        // raise the slope causing C to discharge
+//        DDR_SLOPE   |=  (1 << SLOPE);
+//        PORT_SLOPE  |=  (1 << SLOPE);
+//
+//        //disable CTC mode
+//        TCCR3B &= ~(1 << WGM32);  //CTC mode
+//
+//        // disable TIMER3_COMPA 
+//        TIMSK3 &= ~(1 << OCIE3A); 
+//
+//        // enable TIMER3_COMPB
+//        TIMSK3 |= (1 << OCIE3B); 
+//
+//        //enable TIMER1_CAPT 
+//        //TIMSK1      |=  (1 << ICIE1);
+//    }
+//}
 
-    measured[write_index] = ICR1;
-
-    // set the top and bottom low
-    DDR_TOP     |=  (1 << TOP);
-    DDR_BOTTOM  |=  (1 << BOTTOM);
-    PORT_TOP    &= ~(1 << TOP);
-    PORT_BOTTOM &= ~(1 << BOTTOM);
-
-    // drain the slope, set Hi-Z 
-    DDR_SLOPE   &= ~(1 << SLOPE);
-    PORT_SLOPE  &= ~(1 << SLOPE);
-
-    // disable AC capture input
-    ACSR   &= ~(1 << ACIC);   
-
-    //disable TIMER1_CAPT 
-    TIMSK1 &= ~(1 << ICIE1); 
-
-    // enable TIMER3_COMPA 
-    TIMSK3 |= (1 << OCIE3A); 
-}
+//ISR(TIMER1_CAPT_vect)
+//{
+//    // disable AC capture input
+//    ACSR   &= ~(1 << ACIC);   
+//
+//    //disable TIMER1_CAPT 
+//    TIMSK1 &= ~(1 << ICIE1); 
+//
+//    if(++write_index >= BUF_SIZE)
+//        write_index = 0;
+//
+//    measured[write_index] = ICR1;
+//
+//    // set the top and bottom low
+//    DDR_TOP     |=  (1 << TOP);
+//    DDR_BOTTOM  |=  (1 << BOTTOM);
+//    PORT_TOP    &= ~(1 << TOP);
+//    PORT_BOTTOM &= ~(1 << BOTTOM);
+//
+//    // drain the slope, set Hi-Z 
+//    DDR_SLOPE   &= ~(1 << SLOPE);
+//    PORT_SLOPE  &= ~(1 << SLOPE);
+//
+//
+//
+//}
 
