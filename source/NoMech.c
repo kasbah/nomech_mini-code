@@ -34,15 +34,15 @@
  *  the demo and is responsible for the initial application hardware configuration.
  */
 
-#define TOP         PF1
-#define DDR_TOP     DDRF
-#define PORT_TOP    PORTF
+#define TOP         PB5
+#define DDR_TOP     DDRB
+#define PORT_TOP    PORTB
 
-#define BOTTOM      PF0
-#define DDR_BOTTOM  DDRF
-#define PORT_BOTTOM PORTF
+#define BOTTOM      PB4
+#define DDR_BOTTOM  DDRB
+#define PORT_BOTTOM PORTB
 
-#define SLOPE       PB7
+#define SLOPE       PB0
 #define DDR_SLOPE   DDRB
 #define PORT_SLOPE  PORTB
 
@@ -142,19 +142,19 @@ int main(void)
 		/* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
         CDC_Device_ReceiveByte(&NoMech_CDC_Interface);
 
-        //uint16_t measured_local[BUF_SIZE];
+        uint16_t measured_local[BUF_SIZE];
 
-        //GlobalInterruptDisable();
-        //read_index = write_index;
-        //memcpy(measured_local, measured, sizeof(uint16_t) * BUF_SIZE);
-        ////measured_local = measured[read_index];
-        //GlobalInterruptEnable();
+        GlobalInterruptDisable();
+        read_index = write_index;
+        memcpy(measured_local, measured, sizeof(uint16_t) * BUF_SIZE);
+        //measured_local = measured[read_index];
+        GlobalInterruptEnable();
 
-        //if (measured_local && (read_index != prev_read_index) && (!(read_index % 2))) //output samples at 1/2 sample rate
-        //{
-        //    fprintf(&USBSerialStream, "0:%u\r\n", measured_local[read_index]);
-        //    prev_read_index = read_index;
-        //}
+        if (measured_local && (read_index != prev_read_index) && (!(read_index % 2))) //output samples at 1/2 sample rate
+        {
+            fprintf(&USBSerialStream, "0:%u\r\n", measured_local[read_index]);
+            prev_read_index = read_index;
+        }
 
         CDC_Device_USBTask(&NoMech_CDC_Interface);
         USB_USBTask();
