@@ -34,15 +34,15 @@
  *  the demo and is responsible for the initial application hardware configuration.
  */
 
-#define TOP         PF1
-#define DDR_TOP     DDRF
-#define PORT_TOP    PORTF
+#define TOP         PB5
+#define DDR_TOP     DDRB
+#define PORT_TOP    PORTB
 
-#define BOTTOM      PF0
-#define DDR_BOTTOM  DDRF
-#define PORT_BOTTOM PORTF
+#define BOTTOM      PB4
+#define DDR_BOTTOM  DDRB
+#define PORT_BOTTOM PORTB
 
-#define SLOPE       PB7
+#define SLOPE       PB0
 #define DDR_SLOPE   DDRB
 #define PORT_SLOPE  PORTB
 
