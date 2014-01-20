@@ -14,8 +14,7 @@ Hardware:
 
 First get the LUFA submodule. 
 
-    git submodules init
-    git submodules update
+    git submodule update --init
 
 Then edit ```LUFA/LUFA/Build/lufa_avrdude.mk``` to your preference of
 
