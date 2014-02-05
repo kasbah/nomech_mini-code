@@ -2,6 +2,7 @@
 *.d
 *.elf
 *.hex
+*.bin
 *.eep
 *.lss
 *.map
