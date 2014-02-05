@@ -1,6 +1,4 @@
-
 #include "NoMech.h"
-#include <util/delay.h>
 
 #define IIR 2
 

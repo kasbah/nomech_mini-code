@@ -33,16 +33,13 @@
  *  Header file for LUFA.c.
  */
 
-#ifndef _VIRTUALSERIAL_H_
-#define _VIRTUALSERIAL_H_
+#ifndef _LUFA_H_
+#define _LUFA_H_
 
     /* Includes: */
         #include "Descriptors.h"
 
-        #include <LUFA/Drivers/Board/LEDs.h>
-        #include <LUFA/Drivers/Board/Joystick.h>
         #include <LUFA/Drivers/USB/USB.h>
-        #include <LUFA/Platform/Platform.h>
 
     /* Macros: */
 

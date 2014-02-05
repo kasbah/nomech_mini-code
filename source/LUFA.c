@@ -29,7 +29,7 @@
 */
 
 /** \file
- *
+ * LUFA USB stack configuration.
  */
 
 #include "LUFA.h"

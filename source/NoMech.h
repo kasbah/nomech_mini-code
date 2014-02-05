@@ -8,7 +8,7 @@
         #include <avr/interrupt.h>
         #include <string.h>
         #include <stdio.h>
-        #include "LUFA.h"
+        #include <LUFA/Drivers/USB/USB.h>
 
     /* Macros: */
 
