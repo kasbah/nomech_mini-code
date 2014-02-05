@@ -156,24 +156,20 @@ static FILE USBSerialStream;
 #define sw_bottom(pin,lvl)	do { \
 					switch((pin)) { \
 					case YB0: \
-						/*PORTB &= ~_BV(4);*/ \
-						if((lvl))	{ /*DIDR2 &= ~_BV(ADC11D);*/ DDRB |= _BV(4); } \
-						else		{ /*DIDR2 |= _BV(ADC11D);*/  DDRB &= ~_BV(4); } \
+						if((lvl))	{  DDRB |= _BV(4); } \
+						else		{   DDRB &= ~_BV(4); } \
 						break; \
 					case YB1: \
-						/*PORTF &= ~_BV(6);*/ \
-						if((lvl))	{ /*DIDR0 &= ~_BV(ADC6D);*/ DDRF |= _BV(6); } \
-						else		{ /*DIDR0 |= _BV(ADC6D);*/  DDRF &= ~_BV(6); } \
+						if((lvl))	{  DDRF |= _BV(6); } \
+						else		{   DDRF &= ~_BV(6); } \
 						break; \
 					case YB2: \
-						/*PORTF &= ~_BV(4);*/ \
-						if((lvl))	{ /*DIDR0 &= ~_BV(ADC4D);*/ DDRF |= _BV(4); } \
-						else		{ /*DIDR0 |= _BV(ADC4D);*/  DDRF &= ~_BV(4); } \
+						if((lvl))	{  DDRF |= _BV(4); } \
+						else		{   DDRF &= ~_BV(4); } \
 						break; \
 					case YB3:  \
-						/*PORTF &= ~_BV(0);*/ \
-						if((lvl))	{ /*DIDR0 &= ~_BV(ADC0D);*/ DDRF |= _BV(0); } \
-						else		{ /*DIDR0 |= _BV(ADC0D);*/  DDRF &= ~_BV(0); } \
+						if((lvl))	{  DDRF |= _BV(0); } \
+						else		{   DDRF &= ~_BV(0); } \
 						break; \
 					} \
 				} while(0)
@@ -181,36 +177,32 @@ static FILE USBSerialStream;
 #define sw_top(pin,lvl)		do { \
 					switch((pin)) { \
 					case YA0: \
-						/*PORTB &= ~_BV(5);*/ \
-						if((lvl))	{ /*DIDR2 &= ~_BV(ADC12D);*/ DDRB |= _BV(5); } \
-						else		{ /*DIDR2 |= _BV(ADC12D);*/  DDRB &= ~_BV(5); } \
+						if((lvl))	{  DDRB |= _BV(5); } \
+						else		{  DDRB &= ~_BV(5); } \
 						break; \
 					case YA1: \
-						/*PORTF &= ~_BV(7);*/ \
-						if((lvl))	{ /*DIDR0 &= ~_BV(ADC7D);*/ DDRF |= _BV(7); } \
-						else		{ /*DIDR0 |= _BV(ADC7D);*/  DDRF &= ~_BV(7); } \
+						if((lvl))	{  DDRF |= _BV(7); } \
+						else		{  DDRF &= ~_BV(7); } \
 						break; \
 					case YA2: \
-						/*PORTF &= ~_BV(5);*/ \
-						if((lvl))	{ /*DIDR0 &= ~_BV(ADC5D);*/ DDRF |= _BV(5); } \
-						else		{ /*DIDR0 |= _BV(ADC5D);*/  DDRF &= ~_BV(5); } \
+						if((lvl))	{  DDRF |= _BV(5); } \
+						else		{  DDRF &= ~_BV(5); } \
 						break; \
 					case YA3: \
-						/*PORTF &= ~_BV(1);*/ \
-						if((lvl))	{ /*DIDR0 &= ~_BV(ADC1D);*/ DDRF |= _BV(1); } \
-						else		{ /*DIDR0 |= _BV(ADC1D);*/  DDRF &= ~_BV(1); } \
+						if((lvl))	{  DDRF |= _BV(1); } \
+						else		{  DDRF &= ~_BV(1); } \
 						break; \
 					} \
 				} while(0)
 
 #define sc_on(pin)		do { \
 					switch((pin)) { \
-					case YB0: /*DIDR2 |= _BV(ADC11D);*/ ADMUX = 0b00000011; ADCSRB |= _BV(MUX5); break; /* ADC11 */ \
-					case YB1: /*DIDR0 |= _BV(ADC6D);*/ ADMUX = 0b00000110; ADCSRB &= ~_BV(MUX5); break; /* ADC6 */ \
-					case YB2: /*DIDR0 |= _BV(ADC4D);*/ ADMUX = 0b00000100; ADCSRB &= ~_BV(MUX5); break; /* ADC4 */ \
-					case YB3: /*DIDR0 |= _BV(ADC0D);*/ ADMUX = 0b00000000; ADCSRB &= ~_BV(MUX5); break; /* ADC0 */ \
+					case YB0: ADMUX = 0b00000011; ADCSRB |= _BV(MUX5); break; /* ADC11 */ \
+					case YB1: ADMUX = 0b00000110; ADCSRB &= ~_BV(MUX5); break; /* ADC6 */ \
+					case YB2: ADMUX = 0b00000100; ADCSRB &= ~_BV(MUX5); break; /* ADC4 */ \
+					case YB3: ADMUX = 0b00000000; ADCSRB &= ~_BV(MUX5); break; /* ADC0 */ \
 					} \
-					ACSR = _BV(ACIE) | _BV(ACI) | _BV(ACIC) | _BV(ACIS1) /*| _BV(ACIS0)*/; \
+					ACSR = _BV(ACIE) | _BV(ACI) | _BV(ACIC) | _BV(ACIS1) ;\
 				} while(0)
 
 #define sc_off()		do { \
@@ -221,35 +213,6 @@ static FILE USBSerialStream;
 					TCNT1H = 0; \
 					TCNT1L = 0; \
 				} while(0)
-
-void pump(uint8_t x, uint8_t y, uint8_t n)
-{
-	uint8_t i;
-PORTB |= _BV(2);
-	sw_drive(x, SW_OFF);
-	sw_bottom(y, SW_ON);
-	sw_top(y, SW_ON);
-	__asm("nop");
-	__asm("nop");
-	__asm("nop");
-	__asm("nop");
-	__asm("nop");
-	__asm("nop");
-	__asm("nop");
-	__asm("nop");
-	__asm("nop");
-	__asm("nop");
-
-	for(i = 0; i < n; i++) {
-		sw_top(y, SW_OFF);
-		sw_bottom(y, SW_ON);
-		sw_drive(x, SW_ON);
-		sw_bottom(y, SW_OFF);
-		sw_top(y, SW_ON);
-		sw_drive(x, SW_OFF);
-	}
-PORTB &= ~_BV(2);
-}
 
 typedef void (*pf_t)(uint8_t);
 
@@ -316,25 +279,6 @@ int main(void)
 	/* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
 	CDC_Device_CreateStream(&NoMech_CDC_Interface, &USBSerialStream);
 
-/*
-	//enable noise canceler, set clock to no prescaling
-	//TCCR1B       =  0b001;
-
-	// set CTC compare period 
-	OCR3A   = 5; 
-
-	OCR3B   = 2000; 
-
-	//set timer 3 to Fcpu no noise canceler and enable CTC
-	TCCR3B |= (0 << WGM32)  //CTC mode
-		|  (0 << ICNC3)  //noise canceler
-		|  (0 <<  CS32) | (0 << CS31) | (1 << CS30); //Fcpu div
-
-	// enable TIMER3_COMPB
-	TIMSK3 |= (1 << OCIE3B); 
-*/
-
-	//uint8_t prev_read_index = 0;
 	GlobalInterruptEnable();
 	uint16_t ch;
 	uint8_t x = 0;
@@ -485,55 +429,3 @@ ISR(TIMER3_COMPA_vect)
 
 	tag = 1;
 }
-
-#if 0
-ISR(TIMER3_COMPB_vect)
-{
-    PORTB |= (1 << PB0);
-
-    // disable TIMER3_COMPB 
-    TIMSK3 &= ~(1 << OCIE3B); 
-
-    //enable CTC mode
-    TCCR3B |= (1 << WGM32);  //CTC mode
-
-    // enable TIMER3_COMPA 
-    TIMSK3 |= (1 << OCIE3A); 
-    TCNT3        =   0;
-}
-
-ISR(TIMER3_COMPA_vect)
-{
-    GlobalInterruptDisable();
-
-    PORTB &= ~(1 << PB0);
-
-    //open top, close bottom and pulse
-    DDR_TOP    &= ~(1 << TOP);
-    DDR_BOTTOM |=  (1 << BOTTOM);
-    PORT_DRIVE |=  (1 << DRIVE);
-
-    //open bottom, close top so C doesn't discharge
-    DDR_BOTTOM &= ~(1 << BOTTOM);
-    DDR_TOP    |=  (1 << TOP);
-    PORT_DRIVE &= ~(1 << DRIVE);
-
-    number_of_pumps++;
-
-    if (number_of_pumps >= MAX_PUMPS)
-    {
-        number_of_pumps = 0;
-        //disable CTC mode
-        TCCR3B &= ~(1 << WGM32);  //CTC mode
-
-        TCNT3        =   0;
-
-        // disable TIMER3_COMPA 
-        TIMSK3 &= ~(1 << OCIE3A); 
-
-        // enable TIMER3_COMPB 
-        TIMSK3 |= (1 << OCIE3B); 
-    }
-    GlobalInterruptEnable();
-}
-#endif
