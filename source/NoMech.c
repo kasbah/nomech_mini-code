@@ -322,9 +322,12 @@ int main(void)
 			p &= 0x03;
 			if(++y > 3) {
 				y = 0;
-				fprintf(&USBSerialStream, "%4u %4u %4u %4u %4u %4u %4u %4u %4u %4u %4u %4u %4u %4u %4u %4u\r\n",
-						res[0][0], res[0][1], res[0][2], res[0][3], res[1][0], res[1][1], res[1][2], res[1][3],
-						res[2][0], res[2][1], res[2][2], res[2][3], res[3][0], res[3][1], res[3][2], res[3][3]);
+                fprintf(&USBSerialStream, "***********************\r\n");
+                fprintf(&USBSerialStream, "* %4u %4u %4u %4u *\r\n", res[3][3], res[2][3], res[1][3], res[0][3]);
+                fprintf(&USBSerialStream, "* %4u %4u %4u %4u *\r\n", res[3][2], res[2][2], res[1][2], res[0][2]);
+                fprintf(&USBSerialStream, "* %4u %4u %4u %4u *\r\n", res[3][1], res[2][1], res[1][1], res[0][1]);
+                fprintf(&USBSerialStream, "* %4u %4u %4u %4u *\r\n", res[3][0], res[2][0], res[1][0], res[0][0]);
+                fprintf(&USBSerialStream, "***********************\r\n\r\n");
 			}
 		}
 		leds[x] = 1 << p;
