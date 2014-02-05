@@ -14,8 +14,7 @@ Hardware:
 
 First get the LUFA submodule. 
 
-    git submodules init
-    git submodules update
+    git submodule update --init
 
 Then edit ```LUFA/LUFA/Build/lufa_avrdude.mk``` to your preference of
 
@@ -38,6 +37,6 @@ Then you can set the fuses, compile and upload the code.
 ## Protocol
 
 The board appears as a virtual serial device (typically ```/dev/ttyACM0``` on Linux) and 
-sends and sends the measurement of the first electrode.
+sends the measurement of the first electrode.
 
     0:<measurement>
