@@ -34,39 +34,16 @@
  *  the demo and is responsible for the initial application hardware configuration.
  */
 
-#define TOP         PB5
-#define DDR_TOP     DDRB
-#define PORT_TOP    PORTB
-
-#define BOTTOM      PB4
-#define DDR_BOTTOM  DDRB
-#define PORT_BOTTOM PORTB
-
-#define SLOPE       PB0
-#define DDR_SLOPE   DDRB
-#define PORT_SLOPE  PORTB
-
-#define DRIVE       PB6
-#define DDR_DRIVE   DDRB
-#define PORT_DRIVE  PORTB
-
-#define MAX_PUMPS 100 
-#define BUF_SIZE 64 
-
 #include "NoMech.h"
 #include <util/delay.h>
 
-volatile uint16_t measured[BUF_SIZE];
-//volatile uint16_t measured;
-volatile uint8_t read_index  = 0;
-volatile uint8_t write_index = 0;
-volatile int number_of_pumps = 0;
+#define IIR 2
+
 volatile uint8_t tag;
 volatile uint8_t dataready;
 volatile uint16_t timerval;
 volatile uint8_t ledidx;
 volatile uint8_t leds[4];
-
 
 /** LUFA CDC Class driver interface configuration and state information. This structure is
  *  passed to all CDC Class driver functions, so that multiple instances of the same class
@@ -308,7 +285,6 @@ int main(void)
             USB_USBTask();
         }
         dataready = 0;
-#define IIR 2
         res[y][x] = timerval + 2048 - (avg[y][x] >> IIR);
         avg[y][x] = ((avg[y][x] * ((1<<IIR)-1)) >> IIR) + timerval;
 
