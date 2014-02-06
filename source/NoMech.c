@@ -89,20 +89,20 @@ static FILE USBSerialStream;
 #define sw_top(pin,lvl)     do { \
                     switch((pin)) { \
                     case YA0: \
-                        if((lvl))   {  DDRB |= _BV(5); } \
-                        else        {  DDRB &= ~_BV(5); } \
+                        if((lvl))   { DDRB |= _BV(5); } \
+                        else        { DDRB &= ~_BV(5); } \
                         break; \
                     case YA1: \
-                        if((lvl))   {  DDRF |= _BV(7); } \
-                        else        {  DDRF &= ~_BV(7); } \
+                        if((lvl))   { DDRF |= _BV(7); } \
+                        else        { DDRF &= ~_BV(7); } \
                         break; \
                     case YA2: \
-                        if((lvl))   {  DDRF |= _BV(5); } \
-                        else        {  DDRF &= ~_BV(5); } \
+                        if((lvl))   { DDRF |= _BV(5); } \
+                        else        { DDRF &= ~_BV(5); } \
                         break; \
                     case YA3: \
-                        if((lvl))   {  DDRF |= _BV(1); } \
-                        else        {  DDRF &= ~_BV(1); } \
+                        if((lvl))   { DDRF |= _BV(1); } \
+                        else        { DDRF &= ~_BV(1); } \
                         break; \
                     } \
                 } while(0)
@@ -197,6 +197,7 @@ int main(void)
     uint8_t y = 0;
     static uint16_t avg[4][4];
     static uint16_t res[4][4];
+    static uint8_t pressed[4][4];
     uint8_t p = 0;
 
     for(;;) {
@@ -223,23 +224,32 @@ int main(void)
         res[y][x] = timerval + 2048 - (avg[y][x] >> IIR);
         avg[y][x] = ((avg[y][x] * ((1<<IIR)-1)) >> IIR) + timerval;
 
-        CDC_Device_USBTask(&NoMech_CDC_Interface);
-        USB_USBTask();
+        if (res[y][x] < 2030)
+            pressed[y][x] = 1;
+        if (res[y][x] > 2070)
+            pressed[y][x] = 0;
+
         if(++x > 3) {
             x = 0;
             p++;
             p &= 0x03;
             if(++y > 3) {
                 y = 0;
-                fprintf(&USBSerialStream, "***********************\r\n");
-                fprintf(&USBSerialStream, "* %4u %4u %4u %4u *\r\n", res[3][3], res[2][3], res[1][3], res[0][3]);
-                fprintf(&USBSerialStream, "* %4u %4u %4u %4u *\r\n", res[3][2], res[2][2], res[1][2], res[0][2]);
-                fprintf(&USBSerialStream, "* %4u %4u %4u %4u *\r\n", res[3][1], res[2][1], res[1][1], res[0][1]);
-                fprintf(&USBSerialStream, "* %4u %4u %4u %4u *\r\n", res[3][0], res[2][0], res[1][0], res[0][0]);
-                fprintf(&USBSerialStream, "***********************\r\n\r\n");
+                fprintf(&USBSerialStream, "***********\r\n");
+                fprintf(&USBSerialStream, "* %1u %1u %1u %1u *\r\n", pressed[0][0], pressed[1][0], pressed[2][0], pressed[3][0]);
+                fprintf(&USBSerialStream, "* %1u %1u %1u %1u *\r\n", pressed[0][1], pressed[1][1], pressed[2][1], pressed[3][1]);
+                fprintf(&USBSerialStream, "* %1u %1u %1u %1u *\r\n", pressed[0][2], pressed[1][2], pressed[2][2], pressed[3][2]);
+                fprintf(&USBSerialStream, "* %1u %1u %1u %1u *\r\n", pressed[0][3], pressed[1][3], pressed[2][3], pressed[3][3]);
+                fprintf(&USBSerialStream, "***********\r\n\r\n");
             }
         }
-        leds[x] = 1 << p;
+        leds[y] = 0xF;
+        //if (pressed[y][x])
+        //    leds[y] |= led_row_to_port[y];
+        //else
+        //    leds[y] &= ~(led_row_to_port[y] & 0xF0);
+        CDC_Device_USBTask(&NoMech_CDC_Interface);
+        USB_USBTask();
     }
 }
 
@@ -302,18 +312,20 @@ ISR(ANALOG_COMP_vect)
     PORTB &= ~_BV(2);
 }
 
+
+
 ISR(TIMER3_COMPA_vect)
 {
     PORTD |= 0b00000011;
     PORTD &= 0b00001111;
-    if(!(ledidx & 1))
+    if(!(led_column & 1))
         PORTB |= _BV(7);
     else
         PORTB &= ~_BV(7);
-    PORTD |= (leds[ledidx] << 4);
-    PORTD &= (ledidx & 2) ? ~0x01 : ~0x02;
-    ledidx++;
-    ledidx &= 0x3;
+    PORTD |= leds[led_column];
+    PORTD &= (led_column & 2) ? ~0x01 : ~0x02;
+    led_column++;
+    led_column &= 0x3;
 
     tag = 1;
 }
