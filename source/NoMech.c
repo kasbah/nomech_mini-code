@@ -5,7 +5,7 @@
 volatile uint8_t tag;
 volatile uint8_t dataready;
 volatile uint16_t timerval;
-volatile uint8_t ledidx;
+volatile uint8_t led_column;
 volatile uint8_t leds[4];
 
 extern USB_ClassInfo_CDC_Device_t NoMech_CDC_Interface;
@@ -243,11 +243,7 @@ int main(void)
                 fprintf(&USBSerialStream, "***********\r\n\r\n");
             }
         }
-        leds[y] = 0xF;
-        //if (pressed[y][x])
-        //    leds[y] |= led_row_to_port[y];
-        //else
-        //    leds[y] &= ~(led_row_to_port[y] & 0xF0);
+        leds[y] = pressed[y][1] | (pressed[y][0] << 1) /* x0 and x1 reversed! */| (pressed[y][2] << 2) | (pressed[y][3] << 3);
         CDC_Device_USBTask(&NoMech_CDC_Interface);
         USB_USBTask();
     }
@@ -319,10 +315,10 @@ ISR(TIMER3_COMPA_vect)
     PORTD |= 0b00000011;
     PORTD &= 0b00001111;
     if(!(led_column & 1))
-        PORTB |= _BV(7);
-    else
         PORTB &= ~_BV(7);
-    PORTD |= leds[led_column];
+    else
+        PORTB |= _BV(7);
+    PORTD |= leds[led_column] << 4;
     PORTD &= (led_column & 2) ? ~0x01 : ~0x02;
     led_column++;
     led_column &= 0x3;
