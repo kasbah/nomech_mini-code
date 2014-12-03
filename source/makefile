@@ -43,7 +43,7 @@ include $(LUFA_PATH)/Build/lufa_atprogram.mk
 # custom targets
 first:
 	avrdude $(BASE_AVRDUDE_FLAGS) -B 10 -e
-	avrdude $(BASE_AVRDUDE_FLAGS) -B 10 -U efuse:w:0xCB:m -U hfuse:w:0xDF:m -U lfuse:w:0xFF:m
+	avrdude $(BASE_AVRDUDE_FLAGS) -B 10 -U efuse:w:0xCB:m -U hfuse:w:0xDF:m -U lfuse:w:0xE2:m
 
 backup:
 	avrdude $(BASE_AVRDUDE_FLAGS) -U flash:r:backup_$(NOW).hex:i 
